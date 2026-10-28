@@ -132,6 +132,88 @@ export const getDashboardStats = async (req, res) => {
     const suppliers = await Supplier.find({ status: 'active' });
     let totalPayables = suppliers.reduce((sum, s) => sum + (Number(s.balance_due) || 0), 0);
 
+    // Chart 1: Monthly Sales Trend (Last 6 Months)
+    const monthlyTrendMap = {};
+    const monthsBack = 6;
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
+      monthlyTrendMap[key] = { month: key, sales: 0, invoices: 0 };
+    }
+
+    // Chart 2: Payment Method Breakdown
+    const paymentBreakdown = {
+      'Cash': 0,
+      'UPI / QR': 0,
+      'Card': 0,
+      'Net Banking': 0,
+    };
+
+    // Chart 3: Sales Channels
+    const channelBreakdown = {
+      'In-Store POS': 0,
+      'Online Store': 0,
+    };
+
+    // Chart 4: Top Selling Products
+    const productSalesMap = {};
+
+    allInvoices.forEach(inv => {
+      const gTotal = Number(inv.grand_total) || 0;
+      const invDate = inv.invoice_date ? new Date(inv.invoice_date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+      if (invDate && !isNaN(invDate.getTime())) {
+        const mKey = invDate.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
+        if (monthlyTrendMap[mKey]) {
+          monthlyTrendMap[mKey].sales += gTotal;
+          monthlyTrendMap[mKey].invoices++;
+        }
+      }
+
+      const pm = (inv.payment_method || 'cash').toLowerCase();
+      if (pm.includes('upi') || pm.includes('gpay') || pm.includes('qr') || pm.includes('phonepe')) {
+        paymentBreakdown['UPI / QR'] += gTotal;
+      } else if (pm.includes('card') || pm.includes('debit') || pm.includes('credit')) {
+        paymentBreakdown['Card'] += gTotal;
+      } else if (pm.includes('bank') || pm.includes('neft') || pm.includes('rtgs') || pm.includes('transfer')) {
+        paymentBreakdown['Net Banking'] += gTotal;
+      } else {
+        paymentBreakdown['Cash'] += gTotal;
+      }
+
+      if (inv.sales_mode === 'online') {
+        channelBreakdown['Online Store'] += gTotal;
+      } else {
+        channelBreakdown['In-Store POS'] += gTotal;
+      }
+
+      (inv.items || []).forEach(it => {
+        const pName = it.product_name || 'Sacred Murti';
+        if (!productSalesMap[pName]) {
+          productSalesMap[pName] = { name: pName, quantity: 0, revenue: 0 };
+        }
+        productSalesMap[pName].quantity += (Number(it.quantity) || 1);
+        productSalesMap[pName].revenue += (Number(it.total_amount) || Number(it.unit_price) || 0);
+      });
+    });
+
+    const monthlySalesTrend = Object.values(monthlyTrendMap);
+    const topSellingProducts = Object.values(productSalesMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    // Chart 5: Stock Composition by Sacred Material
+    const materialStock = {};
+    products.forEach(p => {
+      const mat = p.material || 'Brass';
+      const stock = Number(p.current_stock) || 0;
+      const val = stock * (Number(p.selling_price) || 0);
+      if (!materialStock[mat]) {
+        materialStock[mat] = { units: 0, value: 0 };
+      }
+      materialStock[mat].units += stock;
+      materialStock[mat].value += val;
+    });
+
     // Recent Invoices
     const recentInvoices = await Invoice.find().sort({ createdAt: -1 }).limit(8);
 
@@ -175,6 +257,13 @@ export const getDashboardStats = async (req, res) => {
         totalLiquidFunds: cashBalance + bankBalance,
         totalReceivables,
         totalPayables,
+      },
+      charts: {
+        monthlySalesTrend,
+        paymentBreakdown,
+        channelBreakdown,
+        topSellingProducts,
+        materialStock,
       },
       recentInvoices,
       recentActivities,

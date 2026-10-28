@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import AnalyticsCharts from '../components/dashboard/AnalyticsCharts';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [chartsData, setChartsData] = useState(null);
   const [period, setPeriod] = useState('today');
 
   // Today's formatted string in YYYY-MM-DD
@@ -121,6 +123,7 @@ export default function Dashboard() {
           periodInvoicesCount: res.stats.periodInvoicesCount ?? prev.periodInvoicesCount,
         }));
         if (res.recentInvoices) setRecentInvoices(res.recentInvoices);
+        if (res.charts) setChartsData(res.charts);
       }
     } catch (err) {
       console.error('Error loading dashboard stats:', err);
@@ -568,6 +571,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Visual Intelligence & Sacred Analytics Charts */}
+      <AnalyticsCharts chartsData={chartsData} loading={loading} />
 
       {/* 6. Recent Customer Invoices Live Register */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">

@@ -38,7 +38,7 @@ export default function Navbar({ onToggleMobileMenu }) {
   }, [navigate]);
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-20 shadow-sm sticky top-0">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-40 shadow-sm sticky top-0">
       {/* Left: Mobile Toggle & Breadcrumb / Status */}
       <div className="flex items-center gap-3">
         <button

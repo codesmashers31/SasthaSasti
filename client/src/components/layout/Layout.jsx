@@ -27,15 +27,17 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
-      <div className="flex flex-1 overflow-hidden h-[calc(100vh-4rem)] relative">
+      <div className="flex flex-1 w-full relative">
         <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        {/* Placeholder to reserve space for desktop fixed sidebar */}
+        <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
         <main
           ref={mainRef}
           id="main-content-scroll"
-          className={`flex-1 ${
+          className={`flex-1 min-w-0 ${
             isPos
-              ? 'p-2 sm:p-3 overflow-y-auto lg:overflow-hidden h-full'
-              : 'overflow-y-auto p-4 sm:p-6'
+              ? 'p-2 sm:p-3 overflow-y-auto lg:overflow-hidden'
+              : 'p-4 sm:p-6'
           } bg-slate-50`}
         >
           <Outlet />

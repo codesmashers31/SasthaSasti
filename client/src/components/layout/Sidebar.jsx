@@ -24,7 +24,7 @@ export default function Sidebar({ isOpen, onClose }) {
       )}
 
       <aside
-        className={`fixed lg:static top-0 lg:top-auto bottom-0 lg:bottom-auto left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-full overflow-hidden transition-transform duration-300 shadow-md lg:shadow-none select-none ${
+        className={`fixed top-0 lg:top-16 bottom-0 left-0 z-40 lg:z-30 w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-full lg:h-[calc(100vh-4rem)] overflow-hidden transition-transform duration-300 shadow-md lg:shadow-none select-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
