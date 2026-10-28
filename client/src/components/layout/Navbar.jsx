@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/client';
 
-export default function Navbar() {
+export default function Navbar({ onToggleMobileMenu }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [companyInfo, setCompanyInfo] = useState({
@@ -38,14 +38,22 @@ export default function Navbar() {
   }, [navigate]);
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm sticky top-0">
-      {/* Left: Breadcrumb / Status */}
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-20 shadow-sm sticky top-0">
+      {/* Left: Mobile Toggle & Breadcrumb / Status */}
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleMobileMenu}
+          className="lg:hidden w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center cursor-pointer transition-colors"
+          title="Toggle Navigation Menu"
+        >
+          <i className="fas fa-bars text-sm"></i>
+        </button>
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           <i className="fas fa-store text-amber-600 text-sm"></i>
-          <span className="text-slate-900 font-bold">{companyInfo.name}</span>
-          <span>/</span>
-          <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-mono text-[11px] border border-amber-200">
+          <span className="text-slate-900 font-bold truncate max-w-[180px] sm:max-w-none">{companyInfo.name}</span>
+          <span className="hidden sm:inline">/</span>
+          <span className="hidden sm:inline text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-mono text-[11px] border border-amber-200">
             GSTIN: {companyInfo.gstin}
           </span>
         </div>

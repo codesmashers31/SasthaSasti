@@ -1,14 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 
 export default function Layout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const mainRef = useRef(null);
 
-  // Reset scroll position on route navigation
+  // Reset scroll position and close mobile sidebar on route navigation
   useEffect(() => {
+    setMobileMenuOpen(false);
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
       if (typeof mainRef.current.scrollTo === 'function') {
@@ -24,9 +26,9 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Navbar />
-      <div className="flex flex-1 overflow-hidden h-[calc(100vh-4rem)]">
-        <Sidebar />
+      <Navbar onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-4rem)] relative">
+        <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <main
           ref={mainRef}
           id="main-content-scroll"

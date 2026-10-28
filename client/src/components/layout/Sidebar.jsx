@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { user, logout, hasPermission } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -14,21 +14,43 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 overflow-y-auto z-30 transition-all duration-300 shadow-sm select-none">
-      <div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden"
+        ></div>
+      )}
+
+      <aside
+        className={`fixed lg:static top-0 lg:top-auto bottom-0 lg:bottom-auto left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-full overflow-hidden transition-transform duration-300 shadow-md lg:shadow-none select-none ${
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
         {/* Brand Logo Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-14 h-14 bg-transparent flex items-center justify-center shrink-0">
-            <img src="/images/logo.png" alt="Sastha Sasti" className="w-full h-full object-contain scale-150 transform mix-blend-multiply" />
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-10 h-10 bg-amber-50 rounded-xl border border-amber-200/80 flex items-center justify-center shrink-0">
+              <img src="/images/logo.png" alt="Sastha Sasti" className="w-8 h-8 object-contain" />
+            </div>
+            <div className="overflow-hidden">
+              <h1 className="text-sm font-extrabold text-slate-900 leading-tight truncate">Sastha Sasti</h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700 block">Enterprise ERP</span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-slate-900 leading-tight truncate">Sastha Sasti</h1>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700 block">Enterprise ERP</span>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            title="Close Menu"
+          >
+            <i className="fas fa-times text-xs"></i>
+          </button>
         </div>
 
-        {/* Navigation Menus */}
-        <nav className="p-3 space-y-1 text-xs font-semibold text-slate-600">
+        {/* Scrollable Navigation Menus */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1 text-xs font-semibold text-slate-600">
           {/* Executive Dashboard */}
           {user?.username !== 'priya' && (
             <NavLink
@@ -345,27 +367,27 @@ export default function Sidebar() {
             <span>Permissions</span>
           </NavLink>
         </nav>
-      </div>
 
-      {/* User Profile Footer */}
-      <div className="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+        {/* User Profile Footer */}
+        <div className="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="overflow-hidden">
+              <div className="text-xs font-bold text-slate-800 truncate">{user?.name || 'Staff User'}</div>
+              <div className="text-[10px] text-amber-700 font-semibold truncate">{user?.role_name || user?.role_slug || 'Role'}</div>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            <div className="text-xs font-bold text-slate-800 truncate">{user?.name || 'Staff User'}</div>
-            <div className="text-[10px] text-amber-700 font-semibold truncate">{user?.role_name || user?.role_slug || 'Role'}</div>
-          </div>
+          <button
+            onClick={logout}
+            title="Sign Out"
+            className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+          >
+            <i className="fas fa-sign-out-alt"></i>
+          </button>
         </div>
-        <button
-          onClick={logout}
-          title="Sign Out"
-          className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-        >
-          <i className="fas fa-sign-out-alt"></i>
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
