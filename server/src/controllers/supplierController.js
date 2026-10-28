@@ -66,6 +66,9 @@ export const getSupplierById = async (req, res) => {
 export const createSupplier = async (req, res) => {
   try {
     const body = req.body;
+    if (body.status) {
+      body.status = body.status.toLowerCase();
+    }
     if (!body.supplier_code) {
       const count = await Supplier.countDocuments();
       body.supplier_code = `SUP-${String(count + 1).padStart(4, '0')}`;
@@ -102,7 +105,11 @@ export const createSupplier = async (req, res) => {
 
 export const updateSupplier = async (req, res) => {
   try {
-    const supplier = await Supplier.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const body = req.body;
+    if (body.status) {
+      body.status = body.status.toLowerCase();
+    }
+    const supplier = await Supplier.findByIdAndUpdate(req.params.id, body, { new: true });
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
     res.json({ success: true, data: supplier });
   } catch (err) {

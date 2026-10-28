@@ -15,9 +15,15 @@ const supplierSchema = new mongoose.Schema({
   total_purchased: { type: Number, default: 0 },
   total_paid: { type: Number, default: 0 },
   balance_due: { type: Number, default: 0 },
-  payment_status: { type: String, enum: ['Paid', 'Partially Paid', 'Unpaid'], default: 'Unpaid' },
+  payment_status: { type: String, enum: ['Paid', 'Partially Paid', 'Unpaid', 'paid', 'partially paid', 'unpaid'], default: 'Unpaid' },
   notes: { type: String, default: '' },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  status: { 
+    type: String, 
+    enum: ['active', 'inactive', 'Active', 'Inactive'], 
+    default: 'active',
+    set: (v) => (v ? v.toLowerCase() : 'active')
+  },
+  outstanding_balance: { type: Number, default: 0 },
   products_supplied: [{ type: String }],
 }, { timestamps: true });
 
