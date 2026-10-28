@@ -13,7 +13,9 @@ dist-ssr
 *.local
 .env
 
-# Editor directories and files
+# Backups
+backup_clean_slate.json
+*.json.bak
 .vscode/*
 !.vscode/extensions.json
 .idea

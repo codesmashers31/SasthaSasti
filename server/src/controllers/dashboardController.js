@@ -84,11 +84,11 @@ export const getDashboardStats = async (req, res) => {
       }
     });
 
-    // Defaults matching system setup
-    const effectiveSourcingInvestment = productSourcingInvestment > 1000000 ? productSourcingInvestment : 57666300;
-    const effectiveStockValuation = stockValuationRetail > 100000 ? stockValuationRetail : 3097134.68;
-    const effectiveStockUnits = totalStockUnits > 0 ? totalStockUnits : 446;
-    const effectiveActiveProducts = products.length > 0 ? products.length : 39;
+    // Real dynamic values from database
+    const effectiveSourcingInvestment = productSourcingInvestment;
+    const effectiveStockValuation = stockValuationRetail;
+    const effectiveStockUnits = totalStockUnits;
+    const effectiveActiveProducts = products.length;
 
     // Dynamic Target Goal & Custom Date Range calculation
     const targetStartDate = req.query.target_start_date || new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
@@ -106,9 +106,9 @@ export const getDashboardStats = async (req, res) => {
       }
     });
 
-    const billedSalesMonth = targetBilledSales > 0 ? targetBilledSales : 120806.64;
-    const billedBillsMonth = targetBilledBills > 0 ? targetBilledBills : 13;
-    const expectedProfit = targetBilledSales > 0 ? targetBilledSales : 49306.64;
+    const billedSalesMonth = targetBilledSales;
+    const billedBillsMonth = targetBilledBills;
+    const expectedProfit = targetBilledSales;
     const achievedPercent = targetGoal > 0 ? Math.min(100, Math.round((expectedProfit / targetGoal) * 1000) / 10) : 0;
     const remainingToGoal = Math.max(0, targetGoal - expectedProfit);
 
@@ -225,11 +225,11 @@ export const getDashboardStats = async (req, res) => {
       stats: {
         todaySales,
         todayInvoicesCount,
-        monthSales: monthSales > 0 ? monthSales : 123007,
-        monthInvoicesCount: monthInvoicesCount > 0 ? monthInvoicesCount : 18,
+        monthSales,
+        monthInvoicesCount,
         monthName,
-        totalSales: totalSales > 0 ? totalSales : 314980,
-        totalInvoices: totalInvoices > 0 ? totalInvoices : 35,
+        totalSales,
+        totalInvoices,
         periodSales,
         periodInvoicesCount,
         stockValuationRetail: effectiveStockValuation,
