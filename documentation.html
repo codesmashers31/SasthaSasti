@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divya Murti ERP - Enterprise Project Documentation</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 14mm 14mm 16mm 14mm;
+            @bottom-right {
+                content: counter(page);
+                font-size: 8pt;
+                color: #64748b;
+            }
+        }
+        
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 9.5pt;
+            line-height: 1.5;
+            color: #1e293b;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            color: #0f172a;
+            font-weight: 700;
+            margin-top: 14pt;
+            margin-bottom: 6pt;
+            page-break-after: avoid;
+        }
+
+        h1 { font-size: 19pt; color: #b45309; border-bottom: 2pt solid #f59e0b; padding-bottom: 4pt; }
+        h2 { font-size: 14pt; color: #1e3a8a; border-bottom: 1pt solid #cbd5e1; padding-bottom: 3pt; margin-top: 18pt; }
+        h3 { font-size: 11pt; color: #0369a1; margin-top: 12pt; }
+        h4 { font-size: 10pt; color: #334155; }
+
+        p {
+            margin-top: 0;
+            margin-bottom: 6pt;
+            text-align: justify;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        /* Cover Page */
+        .cover-page {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-after: always;
+            padding: 30pt 20pt 20pt 20pt;
+            background: linear-gradient(135deg, #fffbeb 0%, #ffffff 50%, #f0fdf4 100%);
+            border: 2pt solid #fde68a;
+            border-radius: 8pt;
+        }
+
+        .cover-header {
+            text-align: center;
+        }
+
+        .cover-badge {
+            display: inline-block;
+            background: #d97706;
+            color: #ffffff;
+            font-size: 9pt;
+            font-weight: 700;
+            padding: 4pt 14pt;
+            border-radius: 20pt;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 15pt;
+        }
+
+        .cover-title {
+            font-size: 26pt;
+            font-weight: 900;
+            color: #78350f;
+            line-height: 1.2;
+            margin-bottom: 8pt;
+            border: none;
+        }
+
+        .cover-subtitle {
+            font-size: 13pt;
+            color: #92400e;
+            font-weight: 600;
+            margin-bottom: 20pt;
+        }
+
+        .cover-desc {
+            font-size: 10.5pt;
+            color: #475569;
+            max-width: 520pt;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .cover-meta {
+            background: #ffffff;
+            border: 1pt solid #e2e8f0;
+            border-radius: 8pt;
+            padding: 16pt 20pt;
+            margin-top: 30pt;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10pt;
+            font-size: 9pt;
+        }
+
+        .meta-item strong {
+            color: #0f172a;
+            display: inline-block;
+            width: 110pt;
+        }
+
+        .meta-item span {
+            color: #475569;
+        }
+
+        .cover-footer {
+            text-align: center;
+            font-size: 8.5pt;
+            color: #94a3b8;
+            border-top: 1pt solid #f1f5f9;
+            padding-top: 10pt;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8pt;
+            margin-bottom: 12pt;
+            font-size: 8.5pt;
+            page-break-inside: avoid;
+        }
+
+        th, td {
+            padding: 5.5pt 7pt;
+            text-align: left;
+            border: 1pt solid #cbd5e1;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 8.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        /* Callouts / Highlights */
+        .callout {
+            background-color: #f0fdf4;
+            border-left: 3pt solid #16a34a;
+            padding: 8pt 12pt;
+            border-radius: 0 4pt 4pt 0;
+            margin: 10pt 0;
+            font-size: 9pt;
+        }
+
+        .callout-warning {
+            background-color: #fffbeb;
+            border-left: 3pt solid #f59e0b;
+        }
+
+        .callout-info {
+            background-color: #eff6ff;
+            border-left: 3pt solid #2563eb;
+        }
+
+        .callout-title {
+            font-weight: 700;
+            margin-bottom: 3pt;
+            color: #0f172a;
+        }
+
+        /* Badges & Tags */
+        .badge {
+            display: inline-block;
+            padding: 1.5pt 5pt;
+            border-radius: 3pt;
+            font-size: 7.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-amber { background: #fef3c7; color: #b45309; }
+        .badge-rose { background: #ffe4e6; color: #be123c; }
+        .badge-purple { background: #f3e8ff; color: #7e22ce; }
+
+        /* Code & Monospace */
+        code {
+            font-family: Consolas, "Courier New", monospace;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 1.5pt 3pt;
+            border-radius: 3pt;
+            font-size: 8.5pt;
+        }
+
+        pre {
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 8pt 10pt;
+            border-radius: 4pt;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 8pt;
+            overflow-x: auto;
+            margin: 8pt 0;
+            page-break-inside: avoid;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10pt;
+            margin-bottom: 10pt;
+        }
+
+        .card {
+            border: 1pt solid #e2e8f0;
+            border-radius: 6pt;
+            padding: 8pt 10pt;
+            background: #ffffff;
+            page-break-inside: avoid;
+        }
+
+        .card-header {
+            font-weight: 700;
+            font-size: 9.5pt;
+            color: #1e3a8a;
+            margin-bottom: 4pt;
+            border-bottom: 1pt solid #f1f5f9;
+            padding-bottom: 3pt;
+        }
+
+        ul, ol {
+            margin-top: 2pt;
+            margin-bottom: 8pt;
+            padding-left: 18pt;
+        }
+
+        li {
+            margin-bottom: 3pt;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 4pt 0;
+            border-bottom: 1pt dotted #cbd5e1;
+            font-size: 9.5pt;
+        }
+
+        .toc-list li a {
+            color: #1e3a8a;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .toc-list li span {
+            color: #64748b;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- COVER PAGE -->
+    <div class="cover-page">
+        <div class="cover-header">
+            <span class="cover-badge">Complete Technical & Functional Documentation</span>
+            <h1 class="cover-title">Sastha Sasti / Divya Murti ERP</h1>
+            <div class="cover-subtitle">Enterprise God Statue, Idol & Religious Artifacts ERP & POS System</div>
+            <p class="cover-desc">
+                An all-inclusive architectural and operational guide covering system capabilities, database entity relationships, role permissions, POS checkout engine, inventory tracking, artisan procurement, supplier payments, multi-channel billing, and financial ledgers.
+            </p>
+        </div>
+
+        <div class="cover-meta">
+            <div class="meta-grid">
+                <div class="meta-item"><strong>Application Name:</strong> <span>Sastha Sasti / Divya Murti ERP</span></div>
+                <div class="meta-item"><strong>Version:</strong> <span>v2.4.0 (Production Release)</span></div>
+                <div class="meta-item"><strong>Backend Architecture:</strong> <span>Pure Core PHP 8.2+ MVC Engine</span></div>
+                <div class="meta-item"><strong>Database Engine:</strong> <span>MySQL 8.0+ / MariaDB (InnoDB)</span></div>
+                <div class="meta-item"><strong>Web Server:</strong> <span>Apache 2.4 (XAMPP Environment)</span></div>
+                <div class="meta-item"><strong>Active HTTP Port:</strong> <span>Port 80 (HTTP) & Port 443 (HTTPS)</span></div>
+                <div class="meta-item"><strong>Active Database Port:</strong> <span>Port 3306 (MySQL)</span></div>
+                <div class="meta-item"><strong>Application Base URL:</strong> <span>http://localhost/billing/billingsoftwaregod/</span></div>
+                <div class="meta-item"><strong>Target Industry:</strong> <span>Devotional Statues, Brass, Panchaloha, Marble & Wood</span></div>
+                <div class="meta-item"><strong>Documentation Date:</strong> <span>October 2026</span></div>
+            </div>
+        </div>
+
+        <div class="cover-footer">
+            Divya Murti ERP &copy; 2026. Confidential and Proprietary Technical Documentation. All rights reserved.
+        </div>
+    </div>
+
+    <!-- TABLE OF CONTENTS -->
+    <div class="page-break"></div>
+    <h1>Table of Contents</h1>
+    <ul class="toc-list">
+        <li><span>1. Executive Summary & Solution Architecture</span> <span>Section 1</span></li>
+        <li><span>2. Infrastructure, Server Stack & Port Configurations</span> <span>Section 2</span></li>
+        <li><span>3. Role-Based Access Control (RBAC) & User Accounts</span> <span>Section 3</span></li>
+        <li><span>4. Complete Database Schema (28 Tables & Relationships)</span> <span>Section 4</span></li>
+        <li><span>5. Core Application Modules & Feature Inventory</span> <span>Section 5</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.1 Executive Dashboard</span> <span>Module 1</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.2 Sacred POS Billing Terminal & Instant Checkout</span> <span>Module 2</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.3 Customer Invoices Register & Payment Collection</span> <span>Module 3</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.4 Product Management & Statue Catalog</span> <span>Module 4</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.5 Categories & Subcategories (Deities Taxonomy)</span> <span>Module 5</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.6 Stock Control & Inventory Transaction Ledger</span> <span>Module 6</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.7 Artisans, Foundries & Sourcing Suppliers</span> <span>Module 7</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.8 Supplier Payment Management & History Ledger</span> <span>Module 8</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.9 Purchase Procurement Orders (PO Workflow)</span> <span>Module 9</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.10 Customer CRM, Wholesale Accounts & Ledgers</span> <span>Module 10</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.11 Accounts, Cash Register & Bank Books</span> <span>Module 11</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.12 Expense Vouchers & Disbursal Approval</span> <span>Module 12</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.13 Sales Returns & Restocking Credit Notes</span> <span>Module 13</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.14 Analytics, Stock Valuation & Financial P&L</span> <span>Module 14</span></li>
+        <li><span>&nbsp;&nbsp;&nbsp;&nbsp;&bull; 5.15 System Settings & Forensic Activity Audit</span> <span>Module 15</span></li>
+        <li><span>6. Complete HTTP Routing & API Reference</span> <span>Section 6</span></li>
+        <li><span>7. Operational Workflows & Standard Operating Procedures (SOP)</span> <span>Section 7</span></li>
+    </ul>
+
+    <!-- SECTION 1: EXECUTIVE SUMMARY -->
+    <h2>1. Executive Summary & Solution Architecture</h2>
+    <p>
+        <strong>Sastha Sasti / Divya Murti ERP</strong> is a specialized enterprise resource planning and point-of-sale solution custom-engineered for god statue manufacturers, sthapathi sculptors, bronze and brass foundries, religious artifact showrooms, and devotional product wholesalers.
+    </p>
+    <p>
+        Traditional generic retail POS software lacks support for the dimensional attributes, metal compositions (Panchaloha, Brass, Black Granite, Marble, Teak), piece-rate artisan labor markups, and sacred idol taxonomy required by religious artifact enterprises. This platform closes that gap with a high-throughput, sub-second POS terminal, multi-mode payment collection, automated GST compliance (HSN 9701 / 12% GST), an immutable double-entry stock ledger, and deep supplier artisan accounting.
+    </p>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-header">Architectural Highlights</div>
+            <ul>
+                <li><strong>Pure Core MVC</strong>: Lightweight, ultra-fast routing engine without bulky third-party framework overhead.</li>
+                <li><strong>Prepared Statements</strong>: 100% parameter-bound SQL queries preventing SQL injection vulnerabilities.</li>
+                <li><strong>Session & CSRF Security</strong>: Automatic cryptographic tokens validating every mutating POST/AJAX transaction.</li>
+                <li><strong>Client-Side Resilience</strong>: Held carts persisted in local browser storage across hardware restarts.</li>
+            </ul>
+        </div>
+        <div class="card">
+            <div class="card-header">Business Capabilities</div>
+            <ul>
+                <li><strong>Instant A4 / Thermal Billing</strong>: Print GST tax invoices or 80mm/58mm thermal receipts instantly.</li>
+                <li><strong>Artisan Foundries P&L</strong>: Track piece-rate purchase costs, markups, and supplier debt in real time.</li>
+                <li><strong>Granular Role Security</strong>: Independent interfaces tailored for Super Admins down to dedicated POS Cashiers.</li>
+                <li><strong>Forensic Audit Trail</strong>: Every critical login, update, sale, and stock adjustment is logged with IP and timestamp.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- SECTION 2: SERVER & PORT CONFIGURATIONS -->
+    <h2>2. Infrastructure, Server Stack & Port Configurations</h2>
+    <p>
+        The software is configured to operate in high-availability environments and local intranet deployments via XAMPP Apache and MySQL services.
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Service Component</th>
+                <th>Port</th>
+                <th>Protocol</th>
+                <th>Software & Engine</th>
+                <th>Configuration / Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Apache Web Server (HTTP)</strong></td>
+                <td><code>80</code></td>
+                <td>TCP / HTTP</td>
+                <td>Apache 2.4.58 (Win64)</td>
+                <td>Main application HTTP endpoint, serving static assets, MVC routing, and API calls.</td>
+            </tr>
+            <tr>
+                <td><strong>Apache Secure Server (HTTPS)</strong></td>
+                <td><code>443</code></td>
+                <td>TCP / HTTPS</td>
+                <td>Apache OpenSSL 3.1.3</td>
+                <td>Encrypted transport layer for production SSL certificates.</td>
+            </tr>
+            <tr>
+                <td><strong>MySQL Database Engine</strong></td>
+                <td><code>3306</code></td>
+                <td>TCP / MySQL</td>
+                <td>MySQL 8.0 / MariaDB 10.4</td>
+                <td>Relational database storage (`god_statue_erp`) with strict foreign keys & transactions.</td>
+            </tr>
+            <tr>
+                <td><strong>PHP Runtime Environment</strong></td>
+                <td>In-Process</td>
+                <td>FastCGI / Module</td>
+                <td>PHP 8.2.12</td>
+                <td>Server-side scripting with extensions: <code>mysqli</code>, <code>pdo_mysql</code>, <code>mbstring</code>, <code>openssl</code>, <code>json</code>.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout callout-info">
+        <div class="callout-title">Application Access Endpoints</div>
+        <strong>Base Application URL:</strong> <code>http://localhost/billing/billingsoftwaregod/</code><br>
+        <strong>Direct Login Endpoint:</strong> <code>http://localhost/billing/billingsoftwaregod/login</code><br>
+        <strong>Database Management (phpMyAdmin):</strong> <code>http://localhost/phpmyadmin/</code>
+    </div>
+
+    <!-- SECTION 3: ROLE-BASED ACCESS CONTROL (RBAC) -->
+    <div class="page-break"></div>
+    <h2>3. Role-Based Access Control (RBAC) & User Accounts</h2>
+    <p>
+        The application enforces strict Role-Based Access Control (RBAC). Access to every route and controller action is guarded by middleware checking against the `permissions` and `role_permissions` database tables. Additionally, custom overrides can be assigned to individual users via `user_permissions`.
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Role Name</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th>Primary Responsibilities & Access Scope</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="badge badge-purple">Super Admin</span></td>
+                <td><code>superadmin</code></td>
+                <td><code>admin123</code></td>
+                <td>Unrestricted full access across all modules, configuration settings, user creation, role editing, and audit trail logs.</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-blue">Store Admin</span></td>
+                <td><code>rajesh</code></td>
+                <td><code>admin123</code></td>
+                <td>Operations management, product catalog maintenance, customer approvals, purchase order authorizations, and financial analytics.</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-amber">Billing Head</span></td>
+                <td><code>anand</code></td>
+                <td><code>admin123</code></td>
+                <td>Supervision of counter cashiers, invoice cancellations, customer credit approvals, and daily POS register reconciliation.</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-green">POS Cashier</span></td>
+                <td><code>priya</code></td>
+                <td><code>admin123</code></td>
+                <td>Streamlined POS terminal, fast barcode scanning, bill creation, payment processing, and A4/thermal invoice printing.</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-blue">Chief Accountant</span></td>
+                <td><code>venkatesh</code></td>
+                <td><code>admin123</code></td>
+                <td>Cash & bank ledgers, supplier payments, expense voucher approval, tax summaries, customer outstanding dues, and P&L statements.</td>
+            </tr>
+            <tr>
+                <td><span class="badge badge-rose">Warehouse Lead</span></td>
+                <td><code>murugan</code></td>
+                <td><code>admin123</code></td>
+                <td>Stock inward verification, physical stock counts, inventory adjustments, damaged goods write-offs, and procurement receipt.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- SECTION 4: DATABASE SCHEMA -->
+    <h2>4. Complete Database Schema (28 Tables & Relationships)</h2>
+    <p>
+        The system runs on the <code>god_statue_erp</code> database featuring 28 relational tables enforced by InnoDB foreign keys, primary keys, and indexes for high-concurrency read/write operations.
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Table Name</th>
+                <th>Primary Key</th>
+                <th>Foreign Keys & Relationships</th>
+                <th>Description & Business Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>departments</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Organizational departments (Billing, Sales, Warehouse, Accounts).</td>
+            </tr>
+            <tr>
+                <td><code>roles</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>System security roles with unique slugs and permission sets.</td>
+            </tr>
+            <tr>
+                <td><code>permissions</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Granular capabilities mapped to modules (e.g., <code>billing.pos</code>, <code>products.edit</code>).</td>
+            </tr>
+            <tr>
+                <td><code>role_permissions</code></td>
+                <td><code>(role_id, permission_id)</code></td>
+                <td><code>roles.id</code>, <code>permissions.id</code></td>
+                <td>Many-to-many relationship mapping roles to specific permissions.</td>
+            </tr>
+            <tr>
+                <td><code>users</code></td>
+                <td><code>id</code></td>
+                <td><code>roles.id</code>, <code>departments.id</code></td>
+                <td>Staff members, encrypted bcrypt passwords, avatar paths, last login IPs.</td>
+            </tr>
+            <tr>
+                <td><code>user_permissions</code></td>
+                <td><code>(user_id, permission_id)</code></td>
+                <td><code>users.id</code>, <code>permissions.id</code></td>
+                <td>Custom user-specific permission grants or explicit revocations.</td>
+            </tr>
+            <tr>
+                <td><code>categories</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>High-level classifications (Brass Statues, Marble Idols, Wooden Carvings).</td>
+            </tr>
+            <tr>
+                <td><code>subcategories</code></td>
+                <td><code>id</code></td>
+                <td><code>categories.id</code></td>
+                <td>Deity classifications (Ganesha, Shiva, Parvathi, Murugan, Perumal, Lakshmi).</td>
+            </tr>
+            <tr>
+                <td><code>products</code></td>
+                <td><code>id</code></td>
+                <td><code>categories.id</code>, <code>subcategories.id</code>, <code>suppliers.id</code></td>
+                <td>Full idol catalog, dimensions (H/W/D/Wt), piece rate, markup, selling price, barcode.</td>
+            </tr>
+            <tr>
+                <td><code>product_images</code></td>
+                <td><code>id</code></td>
+                <td><code>products.id</code></td>
+                <td>Multiple gallery images for each statue with primary image flags.</td>
+            </tr>
+            <tr>
+                <td><code>customers</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Customer CRM, retail, wholesale, temple trusts, credit limits, outstanding balances.</td>
+            </tr>
+            <tr>
+                <td><code>suppliers</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Sthapathis, artisans, foundries, bank IFSC, account numbers, GST, balances.</td>
+            </tr>
+            <tr>
+                <td><code>supplier_payments</code></td>
+                <td><code>id</code></td>
+                <td><code>suppliers.id</code></td>
+                <td>Summary payment state (Paid, Unpaid, Partially Paid) and total paid amount per vendor.</td>
+            </tr>
+            <tr>
+                <td><code>supplier_payment_history</code></td>
+                <td><code>id</code></td>
+                <td><code>suppliers.id</code>, <code>users.id</code></td>
+                <td>Immutable audit history of all payment disbursements made to artisans/suppliers.</td>
+            </tr>
+            <tr>
+                <td><code>purchases</code></td>
+                <td><code>id</code></td>
+                <td><code>suppliers.id</code>, <code>users.id</code></td>
+                <td>Procurement purchase orders, total amounts, taxes, approval status.</td>
+            </tr>
+            <tr>
+                <td><code>purchase_items</code></td>
+                <td><code>id</code></td>
+                <td><code>purchases.id</code>, <code>products.id</code></td>
+                <td>Line items for purchases specifying received quantities and cost prices.</td>
+            </tr>
+            <tr>
+                <td><code>invoices</code></td>
+                <td><code>id</code></td>
+                <td><code>customers.id</code>, <code>users.id</code></td>
+                <td>Sales invoices, tax breakdowns (CGST/SGST/IGST), discount, grand total, status.</td>
+            </tr>
+            <tr>
+                <td><code>invoice_items</code></td>
+                <td><code>id</code></td>
+                <td><code>invoices.id</code>, <code>products.id</code></td>
+                <td>Line items on sales invoices with snapshot of idol attributes, unit price, tax.</td>
+            </tr>
+            <tr>
+                <td><code>sales_returns</code></td>
+                <td><code>id</code></td>
+                <td><code>invoices.id</code>, <code>customers.id</code>, <code>users.id</code></td>
+                <td>Sales return records, refund amounts, refund methods, reason notes.</td>
+            </tr>
+            <tr>
+                <td><code>sales_return_items</code></td>
+                <td><code>id</code></td>
+                <td><code>sales_returns.id</code>, <code>products.id</code></td>
+                <td>Individual products returned and restocked back into the warehouse.</td>
+            </tr>
+            <tr>
+                <td><code>inventory_transactions</code></td>
+                <td><code>id</code></td>
+                <td><code>products.id</code>, <code>users.id</code></td>
+                <td>Immutable transaction ledger: stock in, stock out, sale, restock, damage, adjustment.</td>
+            </tr>
+            <tr>
+                <td><code>accounts</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Chart of accounts (Main Cash Register, HDFC Current, SBI Merchant, Petty Cash).</td>
+            </tr>
+            <tr>
+                <td><code>payments</code></td>
+                <td><code>id</code></td>
+                <td><code>accounts.id</code>, <code>customers.id</code>, <code>suppliers.id</code></td>
+                <td>Double-entry payment receipts and voucher records with bank UTR/cheque refs.</td>
+            </tr>
+            <tr>
+                <td><code>expense_categories</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>Expense types (Foundry Freight, Temple Rent, Electricity, Packaging, Wages).</td>
+            </tr>
+            <tr>
+                <td><code>expenses</code></td>
+                <td><code>id</code></td>
+                <td><code>expense_categories.id</code>, <code>accounts.id</code></td>
+                <td>Expense vouchers with payee info, payment method, bill attachments, approvals.</td>
+            </tr>
+            <tr>
+                <td><code>account_transactions</code></td>
+                <td><code>id</code></td>
+                <td><code>accounts.id</code>, <code>users.id</code></td>
+                <td>Financial journal debit/credit entries updating running account balances.</td>
+            </tr>
+            <tr>
+                <td><code>settings</code></td>
+                <td><code>id</code></td>
+                <td>-</td>
+                <td>System key-value configurations (Company name, address, GSTIN, default tax rate).</td>
+            </tr>
+            <tr>
+                <td><code>activity_logs</code></td>
+                <td><code>id</code></td>
+                <td><code>users.id</code></td>
+                <td>Forensic audit log recording all user logins, updates, deletes, and printings.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- SECTION 5: MODULE DETAILS -->
+    <div class="page-break"></div>
+    <h2>5. Core Application Modules & Feature Inventory</h2>
+
+    <h3>5.1 Executive Dashboard</h3>
+    <p>
+        The executive dashboard aggregates real-time business health metrics across the enterprise:
+    </p>
+    <ul>
+        <li><strong>Financial KPI Cards</strong>: Displays Total Sales Today, Month-to-date Revenue, Total Invoices Generated, Paid Amount Collected, and Current Outstanding Customer Dues.</li>
+        <li><strong>Inventory Critical Alerts</strong>: Live monitoring of idols reaching reorder thresholds with immediate "Reorder" action triggers.</li>
+        <li><strong>Dynamic Trend Charts</strong>: Integrated Chart.js visualizations demonstrating daily and weekly sales trajectory.</li>
+        <li><strong>Deity Popularity Index</strong>: Ranks highest-velocity statues (e.g., 12-inch Brass Ganesha, Panchaloha Nataraja) by sales volume.</li>
+    </ul>
+
+    <h3>5.2 Sacred POS Billing Terminal (/billing, /pos)</h3>
+    <p>
+        Engineered for rapid counter operations during high-traffic festival seasons and temple peak hours:
+    </p>
+    <ul>
+        <li><strong>Lightning Search & Quick Categories</strong>: Instant sub-300ms fuzzy search by deity name, SKU, material, or barcode with quick category filter tabs.</li>
+        <li><strong>Barcode Scanner Integration</strong>: Automatically intercepts USB/Bluetooth barcode scanner inputs; typing or scanning barcodes automatically pulls up items with stock validation.</li>
+        <li><strong>Cart Management & Dynamic Modifiers</strong>: Real-time quantity steppers, item-level discounts, stock quantity threshold enforcement, and removal triggers.</li>
+        <li><strong>Bill-Level GST Customization</strong>: Billing operators can select custom GST rates (e.g., 0%, 5%, 12%, 18%) or apply item defaults, dynamically updating taxable breakdowns.</li>
+        <li><strong>Multi-Channel Payment Engine</strong>: Supports Cash, UPI (with QR code simulation), Credit/Debit Cards, Bank Direct Transfer, and Customer Ledger Credit. Also supports split-mode settlements.</li>
+        <li><strong>Held Carts (Suspend & Resume)</strong>: Allows cashiers to suspend multiple active carts to attend to other customers, saving them safely in the browser's localStorage.</li>
+        <li><strong>Instant Dual-Format Print Triggers</strong>: Instant generation and printing of:
+            <ul>
+                <li><strong>A4 GST Tax Invoices</strong>: Formal tax document complete with company GSTIN, HSN codes, CGST/SGST decomposition, customer address, and authorized signature section.</li>
+                <li><strong>Thermal Receipts (80mm & 58mm)</strong>: Compact receipt format designed for rapid thermal receipt printers with company header, item list, and barcode.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>5.3 Customer Invoices Register (/customer-invoices)</h3>
+    <p>
+        A unified register for reviewing, filtering, and managing completed and pending sales bills:
+    </p>
+    <ul>
+        <li><strong>Advanced Multi-Criteria Filtering</strong>: Filter by invoice number, customer phone number, payment status (Paid, Partial, Unpaid), invoice status, and custom date spans.</li>
+        <li><strong>Key Financial Metrics</strong>: Immediate top-level display of Total Invoiced Revenue, Net Collected Cash, and Total Outstanding Credit Receivables.</li>
+        <li><strong>Actions & Operations</strong>: View interactive invoice details modal, reprint A4 invoices, reprint thermal slips, export to PDF, cancel invoices with audit notes, and accept due payments.</li>
+    </ul>
+
+    <div class="page-break"></div>
+    <h3>5.4 Product Management & Statue Catalog (/products)</h3>
+    <p>
+        The product catalog features an interactive four-pillar tabbed interface designed for seamless idol management:
+    </p>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-header">1. Supplier Details Tab</div>
+            <p>Manages artisan sculptors and foundries. Provides a real-time table of all registered suppliers, contact information, product count, payment status, and an inline modal to register suppliers along with initial product associations.</p>
+        </div>
+        <div class="card">
+            <div class="card-header">2. Product Details Tab</div>
+            <p>Full catalog entries for statues. Captures specific attributes: Deity Name, Material, Dimensions (Height, Width, Depth, Weight), Finish Type (Antique, Gold Plated, Polished), Piece Rate, Markup %, Selling Price, Wholesale Price, and Low-stock limits.</p>
+        </div>
+        <div class="card">
+            <div class="card-header">3. Barcode Details Tab</div>
+            <p>Automated barcode label generation. Configures SKU tracking parameters, generates scannable Code128 barcodes, and provides a multi-label print preview ready for thermal sticker printers.</p>
+        </div>
+        <div class="card">
+            <div class="card-header">4. Invoice Details Tab</div>
+            <p>Tracks supplier purchase transactions, invoice numbers, total purchase value, paid amount, and payment status (Paid, Unpaid, Partially Paid), with instant payment update modals.</p>
+        </div>
+    </div>
+    <ul>
+        <li><strong>Bulk Data Exchange</strong>: Features one-click CSV/Excel Catalog Export, Bulk CSV Import with validation, and a downloadable standard CSV template for fast inventory initialization.</li>
+    </ul>
+
+    <h3>5.5 Categories & Subcategories (/categories, /subcategories)</h3>
+    <ul>
+        <li><strong>Hierarchical Deities Taxonomy</strong>: Organizes inventory into primary categories (e.g., Brass Statues, Marble Murtis, Wooden Artifacts) and deity subcategories (Lord Ganesha, Lord Shiva, Goddess Lakshmi, Lord Murugan, Perumal, Temple Bells).</li>
+        <li><strong>Category Management</strong>: Unique category codes, descriptions, cover image upload, and bulk CSV Import/Export.</li>
+    </ul>
+
+    <h3>5.6 Stock Control & Inventory Transaction Ledger (/inventory)</h3>
+    <ul>
+        <li><strong>Immutable Double-Entry Ledger</strong>: Every single piece mutation is strictly recorded in <code>inventory_transactions</code> with reference type, previous stock, quantity change, new stock, and operator user ID.</li>
+        <li><strong>Transaction Classification</strong>: Distinguishes between <code>stock_in</code>, <code>stock_out</code>, <code>sale</code>, <code>purchase</code>, <code>sales_return</code>, <code>adjustment</code>, <code>damage</code>, and <code>transfer</code>.</li>
+        <li><strong>Stock Adjustment Modal</strong>: Allows authorized staff to perform physical audit counts and register adjustments with mandatory reason documentation.</li>
+    </ul>
+
+    <h3>5.7 Artisans, Foundries & Supplier Payments (/suppliers, /billing/invoices)</h3>
+    <ul>
+        <li><strong>Artisan Profiles</strong>: Maintains master records of master sculptors (Sthapathis), bronze foundries, and woodcarvers, including banking IFSC codes, account numbers, and GST credentials.</li>
+        <li><strong>Supplier Payment Tracking</strong>: Integrated tracking through <code>supplier_payments</code> and <code>supplier_payment_history</code> tables.</li>
+        <li><strong>Payment Modal & History</strong>: Enables accountants to record partial or full payments, choose payment mode (Cash, Bank Transfer, UPI, Cheque), record transaction reference IDs, and view chronological disbursement histories.</li>
+    </ul>
+
+    <div class="page-break"></div>
+    <h3>5.8 Purchase Procurement Orders (/purchases)</h3>
+    <ul>
+        <li><strong>Procurement Lifecycle</strong>: Supports multi-tier purchase workflow: <code>draft</code> &rarr; <code>pending</code> &rarr; <code>approved</code> &rarr; <code>received</code>.</li>
+        <li><strong>Automatic Stock Inward</strong>: Approving or marking a purchase as received automatically increments inventory in the catalog and creates corresponding ledger entries in <code>inventory_transactions</code>.</li>
+    </ul>
+
+    <h3>5.9 Customer CRM & Ledgers (/customers)</h3>
+    <ul>
+        <li><strong>Customer Categorization</strong>: Profiles categorized into Retail Walk-in, Wholesale Distributors, and Temple Trusts / Devasthanams.</li>
+        <li><strong>Credit & Ledger Control</strong>: Enforces maximum credit limits and tracks running outstanding ledger balances across billing cycles.</li>
+    </ul>
+
+    <h3>5.10 Accounts, Cash Book & Bank Registers (/accounts)</h3>
+    <ul>
+        <li><strong>Chart of Accounts</strong>: Dual registers managing Physical Counter Cash and Bank Current Accounts (e.g., HDFC, SBI).</li>
+        <li><strong>Receipts & Disbursements</strong>: Centralized recording of customer payment collections against unpaid invoices and supplier payouts.</li>
+        <li><strong>Running Balance Tracking</strong>: Real-time ledger entries in <code>account_transactions</code> with credit/debit validation.</li>
+    </ul>
+
+    <h3>5.11 Expense Vouchers (/expenses)</h3>
+    <ul>
+        <li><strong>Voucher Generation</strong>: Creation of expense vouchers across categories: Showroom Rent, Freight & Logistics, Electricity, Packaging, Wages, and Workshop Advances.</li>
+        <li><strong>Payment Reconciliation</strong>: Automatic debiting from the specified Cash or Bank account upon voucher approval.</li>
+    </ul>
+
+    <h3>5.12 Sales Returns & Restocking (/sales-returns)</h3>
+    <ul>
+        <li><strong>Invoice Lookup Engine</strong>: Cashiers can search the original invoice number to automatically populate purchased items and prices.</li>
+        <li><strong>Restocking & Refunds</strong>: Returning items immediately restocks them back into warehouse inventory and generates a cash/UPI/credit note refund voucher.</li>
+    </ul>
+
+    <h3>5.13 Analytics, Valuation & P&L Reports (/reports)</h3>
+    <ul>
+        <li><strong>Sales Analytics Report</strong>: Visual breakdown of daily, weekly, and monthly sales trends, gross revenue, discount totals, and tax collections.</li>
+        <li><strong>Stock Valuation Report</strong>: Analyzes real-time warehouse inventory value at cost price versus retail selling price, highlighting dead stock and fast-moving idols.</li>
+        <li><strong>Financial P&L Statement</strong>: Real-time Profit & Loss statement summarizing Sales Income, Cost of Goods Sold (COGS), Operating Expenses, and Net Operating Margins.</li>
+    </ul>
+
+    <h3>5.14 System Settings & Forensic Activity Audit (/settings, /audit)</h3>
+    <ul>
+        <li><strong>Company Branding</strong>: Configures business legal name, branch address, contact numbers, GSTIN, currency symbol (₹), and invoice number prefixes.</li>
+        <li><strong>Forensic Activity Trail</strong>: Immutable log table recording user ID, action type, module, record ID, IP address, user agent, and timestamp for complete internal compliance.</li>
+    </ul>
+
+    <!-- SECTION 6: ROUTING REFERENCE -->
+    <div class="page-break"></div>
+    <h2>6. Complete HTTP Routing & API Reference</h2>
+    <p>
+        The table below provides a complete reference of all system endpoints defined in <code>routes/web.php</code>:
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>HTTP Method</th>
+                <th>URI Pattern</th>
+                <th>Controller & Action</th>
+                <th>Permission Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>GET</code></td><td><code>/</code>, <code>/dashboard</code></td><td><code>DashboardController@index</code></td><td>Authenticated</td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/login</code>, <code>/logout</code></td><td><code>AuthController@login / logout</code></td><td>Public</td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/forgot-password</code></td><td><code>AuthController@forgotPassword</code></td><td>Public</td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/profile</code></td><td><code>UserController@profile</code></td><td>Authenticated</td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/users</code>, <code>/users/create</code></td><td><code>UserController@index / store</code></td><td><code>users.manage</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/users/edit/{id}</code>, <code>/users/delete/{id}</code></td><td><code>UserController@update / delete</code></td><td><code>users.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/roles</code>, <code>/roles/create</code></td><td><code>RoleController@index / store</code></td><td><code>roles.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/categories</code>, <code>/categories/create</code></td><td><code>CategoryController@index / store</code></td><td><code>categories.view / manage</code></td></tr>
+            <tr><td><code>POST</code>, <code>GET</code></td><td><code>/categories/import</code>, <code>/categories/template</code></td><td><code>CategoryController@import / template</code></td><td><code>categories.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/subcategories</code>, <code>/subcategories/create</code></td><td><code>SubCategoryController@index / store</code></td><td><code>categories.view / manage</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/products</code>, <code>/products/api-data</code></td><td><code>ProductController@index / apiData</code></td><td><code>products.view</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/products/create</code>, <code>/products/edit/{id}</code></td><td><code>ProductController@create / update</code></td><td><code>products.manage</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/products/save-detail</code></td><td><code>ProductController@saveDetail</code></td><td><code>products.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/products/export</code>, <code>/products/import</code></td><td><code>ProductController@export / import</code></td><td><code>products.manage</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/billing</code>, <code>/pos</code></td><td><code>BillingController@pos</code></td><td><code>billing.pos</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/billing/search-products</code></td><td><code>BillingController@searchProducts</code></td><td><code>billing.pos</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/billing/scan</code></td><td><code>BillingController@scanBarcode</code></td><td><code>billing.pos</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/billing/checkout</code></td><td><code>BillingController@checkout</code></td><td><code>billing.create</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/customer-invoices</code></td><td><code>BillingController@customerInvoices</code></td><td><code>billing.view</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/billing/invoices</code></td><td><code>BillingController@invoices</code></td><td><code>billing.view</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/billing/invoice/{id}/print</code></td><td><code>BillingController@printInvoice</code></td><td><code>billing.view</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/billing/invoices/update-payment</code></td><td><code>BillingController@updateSupplierPayment</code></td><td><code>billing.view</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/billing/invoices/supplier/{id}</code></td><td><code>BillingController@supplierDetail</code></td><td><code>billing.view</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/purchases</code>, <code>/purchases/create</code></td><td><code>PurchaseController@index / store</code></td><td><code>purchases.view / manage</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/purchases/approve/{id}</code></td><td><code>PurchaseController@approve</code></td><td><code>purchases.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/suppliers</code>, <code>/suppliers/create</code></td><td><code>SupplierController@index / store</code></td><td><code>suppliers.view / manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/customers</code>, <code>/customers/create</code></td><td><code>CustomerController@index / store</code></td><td><code>customers.view / manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/sales-returns</code>, <code>/sales-returns/create</code></td><td><code>SalesReturnController@index / store</code></td><td><code>billing.returns</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/accounts</code>, <code>/accounts/payments</code></td><td><code>AccountController@index / payments</code></td><td><code>accounts.view</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/accounts/customer-payment</code></td><td><code>AccountController@recordCustomerPayment</code></td><td><code>accounts.manage</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/accounts/supplier-payment</code></td><td><code>AccountController@recordSupplierPayment</code></td><td><code>accounts.manage</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/expenses</code>, <code>/expenses/create</code></td><td><code>ExpenseController@index / store</code></td><td><code>expenses.view / manage</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/reports/sales</code>, <code>/reports/inventory</code></td><td><code>ReportController@sales / inventory</code></td><td><code>reports.sales / inventory</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/reports/financial</code></td><td><code>ReportController@financial</code></td><td><code>reports.financial</code></td></tr>
+            <tr><td><code>GET</code>, <code>POST</code></td><td><code>/settings</code>, <code>/settings/update</code></td><td><code>SettingsController@index / update</code></td><td><code>settings.view / manage</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/audit</code></td><td><code>AuditController@index</code></td><td><code>audit.view</code></td></tr>
+        </tbody>
+    </table>
+
+    <!-- SECTION 7: SOP -->
+    <div class="page-break"></div>
+    <h2>7. Operational Workflows & Standard Operating Procedures (SOP)</h2>
+
+    <h3>7.1 Daily Counter POS Billing Workflow</h3>
+    <ol>
+        <li><strong>Cashier Sign-in</strong>: Log in using assigned POS cashier credentials (e.g., <code>priya</code> / <code>admin123</code>). The interface opens directly to the Sacred POS Billing Terminal.</li>
+        <li><strong>Item Addition</strong>: Point the barcode scanner at idol labels or search by deity name / size. Items instantly populate the active cart with default selling price and stock verification.</li>
+        <li><strong>Customer Identification</strong>: For retail walk-ins, leave as Counter Customer. For regular temple patrons or wholesalers, enter their mobile number to auto-populate or create their profile.</li>
+        <li><strong>Tax & Discount Selection</strong>: Adjust item discount or overall bill discount if authorized. Select custom GST tax % or retain standard 12% GST.</li>
+        <li><strong>Payment & Checkout</strong>: Click checkout, select tender mode (Cash, UPI, Card, Bank Transfer, Ledger Credit), enter amount paid, and confirm transaction.</li>
+        <li><strong>Print Invoicing</strong>: The print dialog triggers automatically. Choose <strong>A4 GST Tax Invoice</strong> for institutional orders or <strong>Thermal Receipt</strong> for retail counter patrons.</li>
+    </ol>
+
+    <h3>7.2 Artisan Sourcing & Supplier Settlement Workflow</h3>
+    <ol>
+        <li><strong>New Artisan Registration</strong>: Open <em>Artisans & Foundries</em> or the <em>Supplier Details Tab</em> in Product Management. Record sculptor name, phone number, foundry location, bank IFSC, and account number.</li>
+        <li><strong>Product Association & Costing</strong>: Record received idols with piece-rate labor cost, markup percentage, and calculated selling price.</li>
+        <li><strong>Payment Disbursement</strong>: In <em>Supplier Purchase & Payment Management</em> (<code>/billing/invoices</code>), click <strong>Update Payment</strong> for the supplier. Record the disbursed amount, payment method (Bank/UPI/Cash), date, and reference UTR.</li>
+        <li><strong>Audit Verification</strong>: The system immediately updates the supplier's balance, status (Paid / Partial / Unpaid), and records an immutable log in <code>supplier_payment_history</code>.</li>
+    </ol>
+
+    <h3>7.3 Day-End Cash Balancing & Financial Reconciliation</h3>
+    <ol>
+        <li><strong>Sales Verification</strong>: Access <em>Customer Invoice Details</em> (<code>/customer-invoices</code>) and filter by today's date to verify total invoiced volume and collected cash.</li>
+        <li><strong>Cash Register Balancing</strong>: Open <em>Accounts & Cash Book</em> (<code>/accounts</code>). Match physical drawer cash against the calculated running balance in the Cash register.</li>
+        <li><strong>Expense Reconciliation</strong>: Verify that all petty cash payments made during the day have corresponding approved vouchers in <em>Expense Vouchers</em> (<code>/expenses</code>).</li>
+        <li><strong>Activity Audit Review</strong>: Store Admin or Super Admin reviews the <em>Audit Trail</em> (<code>/audit</code>) to verify any invoice cancellations or stock adjustments performed during the business day.</li>
+    </ol>
+
+    <div class="callout callout-info" style="margin-top: 15pt;">
+        <div class="callout-title">Database Backup Routine</div>
+        <p>
+            It is strongly recommended to run daily database backups. An initial reference backup is maintained at <code>god_statue_erp_backup.sql</code>. To create a fresh daily snapshot via command line:
+        </p>
+        <code>mysqldump -u root god_statue_erp > "C:\xampp\htdocs\billing\billingsoftwaregod\backup_$(Get-Date -Format 'yyyyMMdd').sql"</code>
+    </div>
+
+</body>
+</html>

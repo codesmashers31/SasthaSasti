@@ -1,0 +1,17 @@
+{
+  "name": "divya-murti-erp-platform",
+  "version": "2.0.0",
+  "description": "Divya Murti - Enterprise God Statue ERP & POS System (React Vite 8 + Node Express + MongoDB + Tailwind CSS 4)",
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,yellow\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "build:client": "cd client && npm run build",
+    "migrate": "cd server && npm run migrate",
+    "start": "cd server && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
