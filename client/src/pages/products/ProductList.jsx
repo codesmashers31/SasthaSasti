@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api/client';
+import { useToast } from '../../context/ToastContext';
 
 export default function ProductList() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('product-section'); // 'supplier-section', 'product-section', 'barcode-section', 'invoice-section'
+
+  // Action Loading States for Buttons
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [isSavingSupplier, setIsSavingSupplier] = useState(false);
+  const [isSavingQuickSupplier, setIsSavingQuickSupplier] = useState(false);
+  const [deletingSupplierId, setDeletingSupplierId] = useState(null);
+  const [deletingProductId, setDeletingProductId] = useState(null);
 
   // Data State
   const [products, setProducts] = useState([]);
@@ -171,11 +180,17 @@ export default function ProductList() {
         api.get('/barcode/settings').catch(() => ({ data: {} })),
       ]);
 
-      if (pRes && pRes.data) setProducts(pRes.data);
-      if (sRes && sRes.data) setSuppliers(sRes.data);
-      if (cRes && cRes.data) setCategories(cRes.data);
-      if (scRes && scRes.data) setSubcategories(scRes.data);
-      if (siRes && siRes.data) setSupplierInvoices(siRes.data);
+      const pData = Array.isArray(pRes) ? pRes : (pRes?.data || []);
+      const sData = Array.isArray(sRes) ? sRes : (sRes?.data || []);
+      const cData = Array.isArray(cRes) ? cRes : (cRes?.data || []);
+      const scData = Array.isArray(scRes) ? scRes : (scRes?.data || []);
+      const siData = Array.isArray(siRes) ? siRes : (siRes?.data || []);
+
+      setProducts(pData);
+      setSuppliers(sData);
+      setCategories(cData);
+      setSubcategories(scData);
+      setSupplierInvoices(siData);
 
       if (bRes && bRes.data) {
         if (bRes.data.prefix) setBarcodePrefix(bRes.data.prefix);
@@ -378,19 +393,30 @@ export default function ProductList() {
 
   const handleSaveProductDetail = async (e) => {
     e.preventDefault();
-    if (!productDetailForm.supplier_id) {
-      alert('Please select or add a supplier.');
+
+    let suppId = productDetailForm.supplier_id;
+    if (!suppId && suppliers.length > 0) {
+      suppId = suppliers[0]._id || suppliers[0].legacyId;
+    }
+
+    if (!suppId) {
+      showToast('warning', 'Please select or register a supplier before saving products.');
+      return;
+    }
+
+    if (!productDetailForm.products || productDetailForm.products.length === 0) {
+      showToast('warning', 'At least one product entry is required.');
       return;
     }
 
     try {
-      setLoading(true);
+      setIsSavingProduct(true);
       const chosenMethods = Object.keys(productDetailForm.payment_methods).filter(
         (k) => productDetailForm.payment_methods[k]
       );
 
       const payload = {
-        supplier_id: productDetailForm.supplier_id,
+        supplier_id: suppId,
         supply_date: productDetailForm.supply_date,
         products: productDetailForm.products,
         total_amount_purchased: productDetailForm.total_amount_purchased,
@@ -413,15 +439,14 @@ export default function ProductList() {
       };
 
       const res = await api.post('/products/save-detail', payload);
-      if (res && res.success) {
-        alert(res.message || 'Product(s) added successfully!');
-        setShowProductModal(false);
-        fetchInitialData();
-      }
+      showToast('success', (res && res.message) || 'Product(s) saved successfully!');
+      setShowProductModal(false);
+      fetchInitialData();
     } catch (err) {
-      alert(err.message || 'Failed to save product details');
+      console.error('Save product details error:', err);
+      showToast('error', err.message || 'Failed to save product details');
     } finally {
-      setLoading(false);
+      setIsSavingProduct(false);
     }
   };
 
@@ -532,10 +557,14 @@ export default function ProductList() {
   const handleDeleteSupplier = async (id, name) => {
     if (!window.confirm(`Are you sure you want to delete supplier "${name}"? This action cannot be undone.`)) return;
     try {
+      setDeletingSupplierId(id);
       await api.delete(`/suppliers/${id}`);
+      showToast('success', `Supplier "${name}" deleted successfully.`);
       fetchInitialData();
     } catch (err) {
-      alert(err.message || 'Failed to delete supplier');
+      showToast('error', err.message || 'Failed to delete supplier');
+    } finally {
+      setDeletingSupplierId(null);
     }
   };
 
@@ -552,10 +581,11 @@ export default function ProductList() {
   const handleQuickSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!quickSupplierForm.name.trim() || !quickSupplierForm.mobile.trim()) {
-      alert('Supplier name and mobile number are required.');
+      showToast('warning', 'Supplier name and mobile number are required.');
       return;
     }
     try {
+      setIsSavingQuickSupplier(true);
       const payload = {
         name: quickSupplierForm.name.trim(),
         mobile: quickSupplierForm.mobile.trim(),
@@ -565,11 +595,11 @@ export default function ProductList() {
         status: 'active',
       };
       const res = await api.post('/suppliers', payload);
-      alert('Supplier registered successfully!');
+      showToast('success', 'Supplier registered and selected successfully!');
       setShowQuickSupplierModal(false);
 
-      if (res && res.data) {
-        const newSupp = res.data;
+      if (res && (res.data || res.supplier)) {
+        const newSupp = res.data || res.supplier;
         setProductDetailForm((prev) => ({
           ...prev,
           supplier_id: newSupp._id || newSupp.legacyId || newSupp.id,
@@ -577,7 +607,9 @@ export default function ProductList() {
       }
       fetchInitialData();
     } catch (err) {
-      alert(err.message || 'Failed to save supplier');
+      showToast('error', err.message || 'Failed to save supplier');
+    } finally {
+      setIsSavingQuickSupplier(false);
     }
   };
 
@@ -709,15 +741,16 @@ export default function ProductList() {
   const handleFullSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!fullSupplierForm.supplier_name.trim()) {
-      alert('Supplier name is required.');
+      showToast('warning', 'Supplier name is required.');
       return;
     }
     if (!fullSupplierForm.mobile_number.trim()) {
-      alert('Mobile number is required.');
+      showToast('warning', 'Mobile number is required.');
       return;
     }
 
     try {
+      setIsSavingSupplier(true);
       const selectedMethods = Object.keys(fullSupplierForm.payment_methods).filter(
         (k) => fullSupplierForm.payment_methods[k]
       );
@@ -746,21 +779,27 @@ export default function ProductList() {
       };
 
       await api.post('/suppliers/save-with-products', payload);
-      alert(fullSupplierForm.id ? 'Supplier updated successfully!' : 'Supplier registered successfully!');
+      showToast('success', fullSupplierForm.id ? 'Supplier updated successfully!' : 'Supplier registered successfully!');
       setShowSupplierModal(false);
       fetchInitialData();
     } catch (err) {
-      alert(err.message || 'Failed to save supplier');
+      showToast('error', err.message || 'Failed to save supplier');
+    } finally {
+      setIsSavingSupplier(false);
     }
   };
 
   const handleDeleteProduct = async (id, name) => {
     if (!window.confirm(`Delete product "${name}" from catalog?`)) return;
     try {
+      setDeletingProductId(id);
       await api.delete(`/products/${id}`);
+      showToast('success', `Product "${name}" deleted.`);
       fetchInitialData();
     } catch (err) {
-      alert(err.message || 'Failed to delete product');
+      showToast('error', err.message || 'Failed to delete product');
+    } finally {
+      setDeletingProductId(null);
     }
   };
 
@@ -848,10 +887,31 @@ export default function ProductList() {
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12 select-none">
       {/* Compact Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Product Management</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <i className="fas fa-boxes-stacked text-indigo-600"></i>
+            Product Management
+          </h1>
           <p className="text-xs text-slate-500">Select an entry module below to manage your catalog and billing details</p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={openAddSupplierModal}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow cursor-pointer"
+          >
+            <i className="fas fa-plus"></i>
+            <span>Add Supplier</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openProductModal()}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow cursor-pointer"
+          >
+            <i className="fas fa-plus"></i>
+            <span>Add Products Detail</span>
+          </button>
         </div>
       </div>
 
@@ -1139,10 +1199,11 @@ export default function ProductList() {
                             <button
                               type="button"
                               onClick={() => handleDeleteSupplier(s._id || s.id, s.name)}
+                              disabled={deletingSupplierId === (s._id || s.id)}
                               title="Delete Supplier"
-                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer disabled:opacity-50"
                             >
-                              <i className="fas fa-trash-alt"></i>
+                              <i className={deletingSupplierId === (s._id || s.id) ? "fas fa-spinner fa-spin" : "fas fa-trash-alt"}></i>
                             </button>
                           </div>
                         </td>
@@ -1421,10 +1482,11 @@ export default function ProductList() {
                           <button
                             type="button"
                             onClick={() => handleDeleteProduct(p._id || p.id, p.name)}
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs cursor-pointer"
+                            disabled={deletingProductId === (p._id || p.id)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs cursor-pointer disabled:opacity-50"
                             title="Delete Product"
                           >
-                            <i className="fas fa-trash-alt"></i>
+                            <i className={deletingProductId === (p._id || p.id) ? "fas fa-spinner fa-spin" : "fas fa-trash-alt"}></i>
                           </button>
                         </td>
                       </tr>
@@ -1562,7 +1624,7 @@ export default function ProductList() {
       {/* EXACT "Add Products Detail" MODAL (from C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}
       {showProductModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs overflow-y-auto flex items-center justify-center p-3 sm:p-6 py-8">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-xs overflow-y-auto flex items-center justify-center p-3 sm:p-6 py-8">
           <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-20 shadow-xs">
@@ -2073,11 +2135,20 @@ export default function ProductList() {
               <button
                 type="submit"
                 form="product-detail-modal-form"
-                disabled={loading}
-                className="px-6 py-2.5 rounded-xl text-white bg-amber-600 hover:bg-amber-700 text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                disabled={isSavingProduct || loading}
+                className="px-6 py-2.5 rounded-xl text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
               >
-                <i className="fas fa-save"></i>
-                <span>{loading ? 'Saving...' : 'Save Product'}</span>
+                {isSavingProduct ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    <span>Saving Product...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save"></i>
+                    <span>Save Product</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -2088,7 +2159,7 @@ export default function ProductList() {
       {/* 1. FULL SUPPLIER MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}
       {showSupplierModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-6 py-10">
             <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto">
               {/* Modal Header */}
@@ -2483,9 +2554,20 @@ export default function ProductList() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform hover:-translate-y-0.5 cursor-pointer"
+                    disabled={isSavingSupplier}
+                    className="px-5 py-2.5 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform hover:-translate-y-0.5 cursor-pointer"
                   >
-                    <i className="fas fa-save"></i> Save Supplier
+                    {isSavingSupplier ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin"></i>
+                        <span>Saving Supplier...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-save"></i>
+                        <span>Save Supplier</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -2498,7 +2580,7 @@ export default function ProductList() {
       {/* 2. QUICK REGISTER SUPPLIER MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}
       {showQuickSupplierModal && (
-        <div className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95 border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-indigo-50/50">
               <h3 className="text-sm font-extrabold text-indigo-950 flex items-center gap-2">
@@ -2575,9 +2657,20 @@ export default function ProductList() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  disabled={isSavingQuickSupplier}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
-                  <i className="fas fa-check"></i> Save & Select Supplier
+                  {isSavingQuickSupplier ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check"></i>
+                      <span>Save & Select Supplier</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -2589,7 +2682,7 @@ export default function ProductList() {
       {/* 3. VIEW SUPPLIER PROFILE MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}
       {showViewSupplierModal && selectedSupplierForView && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-6 py-10">
             <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
@@ -2742,7 +2835,7 @@ export default function ProductList() {
       {/* SUPPLIER DETAILED PRODUCTS SHEET MODAL (Full Screen / Drag-to-scroll) */}
       {/* ========================================================================= */}
       {showSupplierSheetModal && selectedSupplierForSheet && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs overflow-hidden p-2 sm:p-4 flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xs overflow-hidden p-2 sm:p-4 flex items-center justify-center">
           <div className="bg-white rounded-2xl w-full h-[95vh] max-w-[98vw] shadow-2xl relative animate-in fade-in flex flex-col overflow-hidden border border-slate-200">
             {/* Header */}
             <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-white shrink-0 shadow-xs">

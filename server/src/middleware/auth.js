@@ -51,8 +51,8 @@ export const requirePermission = (permissionSlug) => {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    // Super admin bypasses all checks
-    if (req.user.role_slug === 'super-admin') {
+    // Super admin and Admin bypass all permission checks
+    if (req.user.role_slug === 'super-admin' || req.user.role_slug === 'admin' || !permissionSlug) {
       return next();
     }
 

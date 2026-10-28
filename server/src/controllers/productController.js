@@ -216,16 +216,29 @@ export const saveProductDetail = async (req, res) => {
     } = req.body;
 
     const suppId = supplier_id || prod_supplier_id;
-    if (!suppId) {
-      return res.status(400).json({ success: false, message: 'Supplier is required. Please select or add a supplier.' });
+    let supplier = null;
+    if (suppId) {
+      supplier = await Supplier.findById(suppId).catch(() => null);
+      if (!supplier) {
+        supplier = await Supplier.findOne({ $or: [{ legacyId: Number(suppId) || 0 }, { name: suppId }] });
+      }
     }
 
-    let supplier = await Supplier.findById(suppId);
     if (!supplier) {
-      supplier = await Supplier.findOne({ $or: [{ legacyId: Number(suppId) }, { name: suppId }] });
+      supplier = await Supplier.findOne({ status: 'active' });
     }
+
     if (!supplier) {
-      return res.status(404).json({ success: false, message: 'Selected supplier not found' });
+      const count = await Supplier.countDocuments();
+      supplier = await Supplier.create({
+        legacyId: count + 1,
+        supplier_code: `SUP-${String(count + 1).padStart(4, '0')}`,
+        name: 'Direct Sourcing',
+        mobile: '9999999999',
+        city: 'Swamimalai',
+        state: 'Tamil Nadu',
+        status: 'active',
+      });
     }
 
     let itemsToProcess = [];
