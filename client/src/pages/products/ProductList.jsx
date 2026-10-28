@@ -26,7 +26,6 @@ export default function ProductList() {
   // Modals State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showSupplierSheetModal, setShowSupplierSheetModal] = useState(false);
@@ -88,17 +87,62 @@ export default function ProductList() {
     status: 'active',
   });
 
-  // Supplier Form
-  const [supplierForm, setSupplierForm] = useState({
+  // Supplier Full & Quick Modals State
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [showQuickSupplierModal, setShowQuickSupplierModal] = useState(false);
+  const [showViewSupplierModal, setShowViewSupplierModal] = useState(false);
+  const [selectedSupplierForView, setSelectedSupplierForView] = useState(null);
+
+  const initialSupplierProductRow = () => ({
     name: '',
-    company_name: '',
-    contact_person: '',
-    mobile: '',
+    category: '',
+    subcategory: '',
+    units: 1,
+    piece_rate: 0,
+    purchase_price: 0,
+    margin_percentage: 60.0,
+    selling_price: 0,
+    gst: 12,
+    barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+  });
+
+  const [fullSupplierForm, setFullSupplierForm] = useState({
+    id: null,
+    supplier_name: '',
+    mobile_number: '',
     email: '',
-    gstin: '',
-    city: '',
+    purchase_date: new Date().toISOString().split('T')[0],
     address: '',
-    status: 'active',
+    city: 'Swamimalai',
+    state: 'Tamil Nadu',
+    gst_number: '',
+    status: 'Active',
+    products: [],
+    total_amount_purchased: 0,
+    payment_methods: {
+      Cash: false,
+      Card: false,
+      UPI: false,
+      'Bank Transfer': false,
+      Credit: false,
+    },
+    payment_amounts: {
+      Cash: '',
+      Card: '',
+      UPI: '',
+      'Bank Transfer': '',
+      Credit: '',
+    },
+    total_amount_paid: 0,
+    balance_amount: 0,
+    payment_status: 'Unpaid',
+  });
+
+  const [quickSupplierForm, setQuickSupplierForm] = useState({
+    name: '',
+    mobile: '',
+    city: 'Swamimalai',
+    gst_number: '',
   });
 
   // Supplier Payment Update Form
@@ -382,20 +426,148 @@ export default function ProductList() {
   };
 
   // -------------------------------------------------------------------------
-  // Supplier CRUD
+  // Supplier CRUD & Workflows (Matching C:\xampp\htdocs\billing\billingsoftwaregod)
   // -------------------------------------------------------------------------
-  const handleSaveSupplier = async (e) => {
+  const openAddSupplierModal = () => {
+    setFullSupplierForm({
+      id: null,
+      supplier_name: '',
+      mobile_number: '',
+      email: '',
+      purchase_date: new Date().toISOString().split('T')[0],
+      address: '',
+      city: 'Swamimalai',
+      state: 'Tamil Nadu',
+      gst_number: '',
+      status: 'Active',
+      products: [],
+      total_amount_purchased: 0,
+      payment_methods: {
+        Cash: false,
+        Card: false,
+        UPI: false,
+        'Bank Transfer': false,
+        Credit: false,
+      },
+      payment_amounts: {
+        Cash: '',
+        Card: '',
+        UPI: '',
+        'Bank Transfer': '',
+        Credit: '',
+      },
+      total_amount_paid: 0,
+      balance_amount: 0,
+      payment_status: 'Unpaid',
+    });
+    setShowSupplierModal(true);
+  };
+
+  const openEditSupplierModal = (s) => {
+    const suppProds = products.filter(
+      (p) => String(p.supplier_id) === String(s._id) || String(p.supplier_id) === String(s.legacyId) || p.supplier_name === s.name
+    );
+    const suppRows = suppProds.map((p) => ({
+      product_id: p._id,
+      name: p.name,
+      category: p.category_name || (p.category_id && p.category_id.name) || '',
+      subcategory: p.subcategory_name || (p.subcategory_id && p.subcategory_id.name) || '',
+      units: p.current_stock || 1,
+      piece_rate: p.piece_rate || p.purchase_price || 0,
+      purchase_price: p.purchase_price || (p.piece_rate * (p.current_stock || 1)) || 0,
+      margin_percentage: p.margin_percentage !== undefined ? p.margin_percentage : 60,
+      selling_price: p.selling_price || 0,
+      gst: p.gst_percent || 12,
+      barcode: p.barcode || '',
+    }));
+
+    const pmString = (s.payment_methods || 'Cash').toLowerCase();
+    const pmState = {
+      Cash: pmString.includes('cash'),
+      Card: pmString.includes('card'),
+      UPI: pmString.includes('upi'),
+      'Bank Transfer': pmString.includes('bank') || pmString.includes('transfer'),
+      Credit: pmString.includes('credit'),
+    };
+
+    const pmAmounts = {
+      Cash: s.payment_amount_cash || (pmState.Cash ? s.total_paid : '') || '',
+      Card: s.payment_amount_card || (pmState.Card ? s.total_paid : '') || '',
+      UPI: s.payment_amount_upi || (pmState.UPI ? s.total_paid : '') || '',
+      'Bank Transfer': s.payment_amount_bank || (pmState['Bank Transfer'] ? s.total_paid : '') || '',
+      Credit: s.payment_amount_credit || (pmState.Credit ? s.total_paid : '') || '',
+    };
+
+    const totalPurch = s.total_purchased || (suppRows.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0)) || 0;
+    const totalPaid = s.total_paid || 0;
+    const balance = Math.max(0, totalPurch - totalPaid);
+
+    setFullSupplierForm({
+      id: s._id || s.id,
+      supplier_name: s.name || s.supplier_name || '',
+      mobile_number: s.mobile || s.mobile_number || '',
+      email: s.email || '',
+      purchase_date: s.purchase_date || new Date().toISOString().split('T')[0],
+      address: s.address || '',
+      city: s.city || 'Swamimalai',
+      state: s.state || 'Tamil Nadu',
+      gst_number: s.gst_number || s.gstin || '',
+      status: (s.status || 'Active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+      products: suppRows,
+      total_amount_purchased: totalPurch,
+      payment_methods: pmState,
+      payment_amounts: pmAmounts,
+      total_amount_paid: totalPaid,
+      balance_amount: balance,
+      payment_status: balance <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid',
+    });
+    setShowSupplierModal(true);
+  };
+
+  const openViewSupplier = (s) => {
+    setSelectedSupplierForView(s);
+    setShowViewSupplierModal(true);
+  };
+
+  const handleDeleteSupplier = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete supplier "${name}"? This action cannot be undone.`)) return;
+    try {
+      await api.delete(`/suppliers/${id}`);
+      fetchInitialData();
+    } catch (err) {
+      alert(err.message || 'Failed to delete supplier');
+    }
+  };
+
+  const openQuickAddSupplierModal = () => {
+    setQuickSupplierForm({
+      name: '',
+      mobile: '',
+      city: 'Swamimalai',
+      gst_number: '',
+    });
+    setShowQuickSupplierModal(true);
+  };
+
+  const handleQuickSupplierSubmit = async (e) => {
     e.preventDefault();
+    if (!quickSupplierForm.name.trim() || !quickSupplierForm.mobile.trim()) {
+      alert('Supplier name and mobile number are required.');
+      return;
+    }
     try {
       const payload = {
-        ...supplierForm,
-        status: (supplierForm.status || 'active').toLowerCase(),
+        name: quickSupplierForm.name.trim(),
+        mobile: quickSupplierForm.mobile.trim(),
+        city: quickSupplierForm.city.trim() || 'Swamimalai',
+        gst_number: quickSupplierForm.gst_number.trim().toUpperCase(),
+        gstin: quickSupplierForm.gst_number.trim().toUpperCase(),
+        status: 'active',
       };
       const res = await api.post('/suppliers', payload);
-      alert('Supplier saved successfully!');
-      setShowSupplierModal(false);
+      alert('Supplier registered successfully!');
+      setShowQuickSupplierModal(false);
 
-      // If supplier modal was opened from Product modal, automatically select newly created supplier!
       if (res && res.data) {
         const newSupp = res.data;
         setProductDetailForm((prev) => ({
@@ -403,18 +575,179 @@ export default function ProductList() {
           supplier_id: newSupp._id || newSupp.legacyId || newSupp.id,
         }));
       }
+      fetchInitialData();
+    } catch (err) {
+      alert(err.message || 'Failed to save supplier');
+    }
+  };
 
-      setSupplierForm({
-        name: '',
-        company_name: '',
-        contact_person: '',
-        mobile: '',
-        email: '',
-        gstin: '',
-        city: '',
-        address: '',
-        status: 'active',
-      });
+  const addSupplierProductRow = () => {
+    setFullSupplierForm((prev) => {
+      const newProducts = [...prev.products, initialSupplierProductRow()];
+      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
+      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
+      return {
+        ...prev,
+        products: newProducts,
+        total_amount_purchased: totalPurchased,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const updateSupplierProductRow = (idx, field, value) => {
+    setFullSupplierForm((prev) => {
+      const newProducts = [...prev.products];
+      const row = { ...newProducts[idx], [field]: value };
+
+      if (field === 'units' || field === 'piece_rate') {
+        const u = Math.max(0, parseInt(field === 'units' ? value : row.units) || 0);
+        const pr = Math.max(0, parseFloat(field === 'piece_rate' ? value : row.piece_rate) || 0);
+        row.units = u;
+        row.piece_rate = pr;
+        row.purchase_price = u * pr;
+        const m = parseFloat(row.margin_percentage) || 60;
+        row.selling_price = Math.round((pr * (1 + m / 100)) * 100) / 100;
+      } else if (field === 'margin_percentage') {
+        const m = parseFloat(value) || 0;
+        row.margin_percentage = m;
+        row.selling_price = Math.round((row.piece_rate * (1 + m / 100)) * 100) / 100;
+      } else if (field === 'selling_price') {
+        const sp = parseFloat(value) || 0;
+        row.selling_price = sp;
+        if (row.piece_rate > 0) {
+          row.margin_percentage = Math.round((((sp - row.piece_rate) / row.piece_rate) * 100) * 100) / 100;
+        }
+      }
+
+      newProducts[idx] = row;
+      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
+      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
+
+      return {
+        ...prev,
+        products: newProducts,
+        total_amount_purchased: totalPurchased,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const removeSupplierProductRow = (idx) => {
+    setFullSupplierForm((prev) => {
+      const newProducts = prev.products.filter((_, i) => i !== idx);
+      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
+      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
+      return {
+        ...prev,
+        products: newProducts,
+        total_amount_purchased: totalPurchased,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const toggleSupplierPaymentMethod = (method) => {
+    setFullSupplierForm((prev) => {
+      const nextChecked = !prev.payment_methods[method];
+      const newMethods = { ...prev.payment_methods, [method]: nextChecked };
+      const newAmounts = {
+        ...prev.payment_amounts,
+        [method]: nextChecked ? prev.payment_amounts[method] || '' : '',
+      };
+
+      const totalPaid = Object.keys(newAmounts).reduce((sum, k) => {
+        return sum + (newMethods[k] ? parseFloat(newAmounts[k]) || 0 : 0);
+      }, 0);
+
+      const balance = Math.max(0, prev.total_amount_purchased - totalPaid);
+      return {
+        ...prev,
+        payment_methods: newMethods,
+        payment_amounts: newAmounts,
+        total_amount_paid: totalPaid,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const onSupplierPaymentAmountChange = (method, val) => {
+    setFullSupplierForm((prev) => {
+      const newAmounts = { ...prev.payment_amounts, [method]: val };
+      const totalPaid = Object.keys(newAmounts).reduce((sum, k) => {
+        return sum + (prev.payment_methods[k] ? parseFloat(newAmounts[k]) || 0 : 0);
+      }, 0);
+
+      const balance = Math.max(0, prev.total_amount_purchased - totalPaid);
+      return {
+        ...prev,
+        payment_amounts: newAmounts,
+        total_amount_paid: totalPaid,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const onSupplierTotalPurchasedChange = (val) => {
+    const purch = parseFloat(val) || 0;
+    setFullSupplierForm((prev) => {
+      const balance = Math.max(0, purch - prev.total_amount_paid);
+      return {
+        ...prev,
+        total_amount_purchased: purch,
+        balance_amount: balance,
+        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
+      };
+    });
+  };
+
+  const handleFullSupplierSubmit = async (e) => {
+    e.preventDefault();
+    if (!fullSupplierForm.supplier_name.trim()) {
+      alert('Supplier name is required.');
+      return;
+    }
+    if (!fullSupplierForm.mobile_number.trim()) {
+      alert('Mobile number is required.');
+      return;
+    }
+
+    try {
+      const selectedMethods = Object.keys(fullSupplierForm.payment_methods).filter(
+        (k) => fullSupplierForm.payment_methods[k]
+      );
+
+      const payload = {
+        supplier_id: fullSupplierForm.id,
+        supplier_name: fullSupplierForm.supplier_name.trim(),
+        mobile_number: fullSupplierForm.mobile_number.trim(),
+        email: fullSupplierForm.email.trim(),
+        purchase_date: fullSupplierForm.purchase_date,
+        address: fullSupplierForm.address.trim(),
+        city: fullSupplierForm.city.trim() || 'Swamimalai',
+        state: fullSupplierForm.state.trim() || 'Tamil Nadu',
+        gst_number: fullSupplierForm.gst_number.trim().toUpperCase(),
+        status: (fullSupplierForm.status || 'Active').toLowerCase(),
+        products: fullSupplierForm.products,
+        total_amount_purchased: fullSupplierForm.total_amount_purchased,
+        payment_methods: selectedMethods.join(', '),
+        payment_amount_cash: fullSupplierForm.payment_amounts.Cash || 0,
+        payment_amount_card: fullSupplierForm.payment_amounts.Card || 0,
+        payment_amount_upi: fullSupplierForm.payment_amounts.UPI || 0,
+        payment_amount_bank: fullSupplierForm.payment_amounts['Bank Transfer'] || 0,
+        payment_amount_credit: fullSupplierForm.payment_amounts.Credit || 0,
+        total_amount_paid: fullSupplierForm.total_amount_paid,
+        balance_amount: fullSupplierForm.balance_amount,
+      };
+
+      await api.post('/suppliers/save-with-products', payload);
+      alert(fullSupplierForm.id ? 'Supplier updated successfully!' : 'Supplier registered successfully!');
+      setShowSupplierModal(false);
       fetchInitialData();
     } catch (err) {
       alert(err.message || 'Failed to save supplier');
@@ -647,7 +980,7 @@ export default function ProductList() {
             </div>
             <button
               type="button"
-              onClick={() => setShowSupplierModal(true)}
+              onClick={openAddSupplierModal}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
             >
               <i className="fas fa-plus"></i> Add Supplier
@@ -731,47 +1064,87 @@ export default function ProductList() {
 
                     return (
                       <tr key={s._id || s.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          {s.name}
-                          {s.company_name && (
-                            <span className="block text-[11px] text-slate-400 font-normal">{s.company_name}</span>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-800 hover:text-indigo-600 transition-colors cursor-pointer" title="Supplier Name">{s.name}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span><i className="fas fa-map-marker-alt text-slate-400 mr-1"></i>{s.city || 'Tamil Nadu'}</span>
+                            {s.email && <span>• <i className="fas fa-envelope text-slate-400 mx-1"></i>{s.email}</span>}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-slate-700">{s.mobile || '—'}</td>
+                        <td className="py-3 px-4">
+                          {count > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => openSupplierSheet(s)}
+                              className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white transition-all font-bold text-xs shadow-xs border border-indigo-200 hover:border-indigo-600 cursor-pointer"
+                              title={`Click to view all ${count} products & sales sheet`}
+                            >
+                              <i className="fas fa-boxes text-indigo-500 group-hover:text-white transition-colors"></i>
+                              <span>{count} Products</span>
+                              <span className="text-[9px] bg-white text-indigo-700 group-hover:bg-indigo-500 group-hover:text-white px-1.5 py-0.5 rounded-md border border-indigo-200 group-hover:border-indigo-400 font-extrabold uppercase tracking-wider transition-colors">
+                                View Sheet
+                              </span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openProductModal(s._id || s.legacyId)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-800 transition-all font-semibold text-xs border border-slate-200 cursor-pointer"
+                              title="No products associated yet. Click to add products"
+                            >
+                              <i className="fas fa-plus text-[10px]"></i>
+                              <span>0 Products</span>
+                            </button>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-700">{s.mobile || '—'}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100 font-mono">
-                            {count} items
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-500">{s.gstin || s.gst_number || 'Unregistered'}</td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-600 font-semibold">{s.gstin || s.gst_number || 'N/A'}</td>
                         <td className="py-3 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                               (s.status || 'active').toLowerCase() === 'active'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-slate-100 text-slate-600'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
                             }`}
                           >
                             {(s.status || 'active').toUpperCase()}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => openProductModal(s._id || s.legacyId)}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 cursor-pointer inline-flex items-center gap-1"
-                            title="Add products for this supplier"
-                          >
-                            <i className="fas fa-plus text-[10px]"></i> Add Products
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openSupplierSheet(s)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer inline-flex items-center gap-1"
-                            title="View Products Sheet"
-                          >
-                            <i className="fas fa-table text-[10px]"></i> View Sheet
-                          </button>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openSupplierSheet(s)}
+                              title="View Products & Sales Sheet"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-indigo-600 hover:text-white text-indigo-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                            >
+                              <i className="fas fa-table"></i>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openViewSupplier(s)}
+                              title="View Supplier Profile"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-indigo-50 text-indigo-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                            >
+                              <i className="fas fa-eye"></i>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditSupplierModal(s)}
+                              title="Edit Supplier"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-amber-50 text-amber-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSupplier(s._id || s.id, s.name)}
+                              title="Delete Supplier"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                            >
+                              <i className="fas fa-trash-alt"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1223,7 +1596,7 @@ export default function ProductList() {
                       </label>
                       <button
                         type="button"
-                        onClick={() => setShowSupplierModal(true)}
+                        onClick={openQuickAddSupplierModal}
                         className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
                       >
                         <i className="fas fa-plus-circle text-xs"></i> + New Supplier
@@ -1283,7 +1656,7 @@ export default function ProductList() {
                               type="button"
                               onClick={() => {
                                 setSupplierComboboxOpen(false);
-                                setShowSupplierModal(true);
+                                openQuickAddSupplierModal();
                               }}
                               className="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-between border border-indigo-200 cursor-pointer"
                             >
@@ -1712,117 +2085,655 @@ export default function ProductList() {
       )}
 
       {/* ========================================================================= */}
-      {/* QUICK ADD SUPPLIER MODAL */}
+      {/* 1. FULL SUPPLIER MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}
       {showSupplierModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <i className="fas fa-truck text-indigo-600"></i>
-                <span>Add Supplier / Vendor</span>
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-6 py-10">
+            <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+                <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  {fullSupplierForm.id ? (
+                    <>
+                      <i className="fas fa-edit text-amber-500"></i> Edit Supplier
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-truck-loading text-indigo-600"></i> Add Supplier
+                    </>
+                  )}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowSupplierModal(false)}
+                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                >
+                  <i className="fas fa-times text-xl"></i>
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleFullSupplierSubmit} className="p-6 space-y-8">
+                {/* 1. Supplier Information */}
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                  <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 flex items-center">
+                    <i className="fas fa-user-tag text-indigo-500 mr-2"></i>1. Supplier Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Supplier Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={fullSupplierForm.supplier_name}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, supplier_name: e.target.value })}
+                        placeholder="Enter supplier name (e.g. Swamimalai Bronze Heritage Works)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Mobile Number <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={fullSupplierForm.mobile_number}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, mobile_number: e.target.value })}
+                        placeholder="Enter mobile number (e.g. 9876543210)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono font-medium text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        value={fullSupplierForm.email}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, email: e.target.value })}
+                        placeholder="e.g. supplier@domain.com (Optional)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Purchase Date</label>
+                      <input
+                        type="date"
+                        value={fullSupplierForm.purchase_date}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, purchase_date: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900 font-mono"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Address</label>
+                      <input
+                        type="text"
+                        value={fullSupplierForm.address}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, address: e.target.value })}
+                        placeholder="Enter street address / workshop location"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">City</label>
+                      <input
+                        type="text"
+                        value={fullSupplierForm.city}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, city: e.target.value })}
+                        placeholder="e.g. Kumbakonam / Thanjavur / Madurai"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">State</label>
+                      <input
+                        type="text"
+                        value={fullSupplierForm.state}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, state: e.target.value })}
+                        placeholder="e.g. Tamil Nadu"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">GST Number</label>
+                      <input
+                        type="text"
+                        value={fullSupplierForm.gst_number}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, gst_number: e.target.value.toUpperCase() })}
+                        placeholder="e.g. 33AABCF9876K1Z2 (Optional)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 uppercase transition-all font-mono text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Supplier Status</label>
+                      <select
+                        value={fullSupplierForm.status}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, status: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900 font-semibold"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Products Supplied */}
+                <div className="bg-amber-50/30 p-5 rounded-xl border border-amber-200/80">
+                  <div className="flex items-center justify-between border-b border-amber-200 pb-2 mb-4">
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center">
+                      <i className="fas fa-box-open text-amber-500 mr-2"></i>2. Products Supplied
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={addSupplierProductRow}
+                      className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                    >
+                      <i className="fas fa-plus mr-1"></i> Add Another Product
+                    </button>
+                  </div>
+
+                  {fullSupplierForm.products.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 bg-white rounded-xl border border-dashed border-amber-200">
+                      <p className="text-xs">No products currently attached. Click "Add Another Product" above if supplying new items.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {fullSupplierForm.products.map((pRow, idx) => (
+                        <div
+                          key={idx}
+                          className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 border border-amber-200 rounded-xl bg-white shadow-xs"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => removeSupplierProductRow(idx)}
+                            className="absolute -top-2 -right-2 bg-rose-100 text-rose-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors shadow-sm cursor-pointer z-10"
+                            title="Remove Product"
+                          >
+                            <i className="fas fa-times text-xs"></i>
+                          </button>
+
+                          <div className="lg:col-span-2">
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Product Name</label>
+                            <input
+                              type="text"
+                              value={pRow.name}
+                              onChange={(e) => updateSupplierProductRow(idx, 'name', e.target.value)}
+                              placeholder="e.g. Brass Ganesha Idol"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800 font-semibold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Category</label>
+                            <input
+                              type="text"
+                              value={pRow.category}
+                              onChange={(e) => updateSupplierProductRow(idx, 'category', e.target.value)}
+                              placeholder="e.g. Brass Idols"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Subcategory</label>
+                            <input
+                              type="text"
+                              value={pRow.subcategory}
+                              onChange={(e) => updateSupplierProductRow(idx, 'subcategory', e.target.value)}
+                              placeholder="e.g. Ganesha"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Pieces Count</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={pRow.units}
+                              onChange={(e) => updateSupplierProductRow(idx, 'units', e.target.value)}
+                              placeholder="e.g. 10"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">One Piece Rate (₹)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={pRow.piece_rate}
+                              onChange={(e) => updateSupplierProductRow(idx, 'piece_rate', e.target.value)}
+                              placeholder="e.g. 1500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Total Purchase Price (₹)</label>
+                            <input
+                              type="number"
+                              value={pRow.purchase_price}
+                              readOnly
+                              className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700 cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Margin % (Default 60%)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={pRow.margin_percentage}
+                              onChange={(e) => updateSupplierProductRow(idx, 'margin_percentage', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Selling Price (₹)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={pRow.selling_price}
+                              onChange={(e) => updateSupplierProductRow(idx, 'selling_price', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-emerald-800 outline-none focus:border-amber-500 focus:bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">GST %</label>
+                            <input
+                              type="number"
+                              value={pRow.gst}
+                              onChange={(e) => updateSupplierProductRow(idx, 'gst', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Barcode</label>
+                            <input
+                              type="text"
+                              value={pRow.barcode}
+                              onChange={(e) => updateSupplierProductRow(idx, 'barcode', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Payment Information */}
+                <div className="bg-emerald-50/30 p-5 rounded-xl border border-emerald-200/80">
+                  <div className="flex items-center justify-between border-b border-emerald-200 pb-2 mb-4">
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center">
+                      <i className="fas fa-credit-card text-emerald-500 mr-2"></i>3. Payment Information
+                    </h4>
+                    <span
+                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                        fullSupplierForm.payment_status === 'Paid'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : fullSupplierForm.payment_status === 'Partially Paid'
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      Status: {fullSupplierForm.payment_status}
+                    </span>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Total Amount Purchased (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={fullSupplierForm.total_amount_purchased}
+                      onChange={(e) => onSupplierTotalPurchasedChange(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full md:w-1/2 bg-white border border-slate-300 text-slate-900 font-bold rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+                    />
+                  </div>
+
+                  <label className="block text-xs font-bold text-slate-700 mb-3">Select Payment Methods</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
+                    {['Cash', 'Card', 'UPI', 'Bank Transfer', 'Credit'].map((method) => {
+                      const isChecked = !!fullSupplierForm.payment_methods[method];
+                      return (
+                        <div
+                          key={method}
+                          className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-2 hover:border-emerald-300 transition-all"
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer w-full">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleSupplierPaymentMethod(method)}
+                              className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+                            />
+                            <span className="text-sm font-bold text-slate-700">{method}</span>
+                          </label>
+                          {isChecked && (
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={fullSupplierForm.payment_amounts[method] || ''}
+                              onChange={(e) => onSupplierPaymentAmountChange(method, e.target.value)}
+                              placeholder={`${method} (₹)`}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono font-bold text-slate-900"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-emerald-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Total Amount Paid (₹)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={fullSupplierForm.total_amount_paid}
+                        readOnly
+                        className="w-full bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Balance to Pay (₹)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={fullSupplierForm.balance_amount}
+                        readOnly
+                        className="w-full bg-rose-50 border border-rose-200 text-rose-800 font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono cursor-not-allowed"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Formula: Balance = Total Amount Purchased - Total Amount Paid
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex items-center justify-end gap-3 sticky bottom-0 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setShowSupplierModal(false)}
+                    className="px-5 py-2.5 rounded-xl text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-sm font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform hover:-translate-y-0.5 cursor-pointer"
+                  >
+                    <i className="fas fa-save"></i> Save Supplier
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. QUICK REGISTER SUPPLIER MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
+      {/* ========================================================================= */}
+      {showQuickSupplierModal && (
+        <div className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95 border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-indigo-50/50">
+              <h3 className="text-sm font-extrabold text-indigo-950 flex items-center gap-2">
+                <i className="fas fa-truck text-indigo-600"></i> Quick Register Supplier
               </h3>
               <button
                 type="button"
-                onClick={() => setShowSupplierModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
+                onClick={() => setShowQuickSupplierModal(false)}
+                className="text-slate-400 hover:text-rose-500 p-1 rounded-lg transition-colors cursor-pointer"
               >
-                <i className="fas fa-times"></i>
+                <i className="fas fa-times text-sm"></i>
               </button>
             </div>
 
-            <form onSubmit={handleSaveSupplier} className="space-y-4 text-xs">
+            <form onSubmit={handleQuickSupplierSubmit} className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Supplier Name <span className="text-rose-500">*</span>
+                  Supplier / Artisan Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  value={supplierForm.name}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                  placeholder="e.g. Swamimalai Bronze Casting Guild"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 font-semibold"
+                  value={quickSupplierForm.name}
+                  onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, name: e.target.value })}
+                  placeholder="e.g. Swamimalai Bronze Works"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Mobile Number <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={supplierForm.mobile}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, mobile: e.target.value })}
-                    placeholder="9999999999"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">GSTIN Number</label>
-                  <input
-                    type="text"
-                    value={supplierForm.gstin}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, gstin: e.target.value.toUpperCase() })}
-                    placeholder="33AAAAA0000A1Z5"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-500 uppercase"
-                  />
-                </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Mobile Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={quickSupplierForm.mobile}
+                  onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, mobile: e.target.value })}
+                  placeholder="e.g. 9876543210"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono font-medium"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Company / Studio</label>
-                  <input
-                    type="text"
-                    value={supplierForm.company_name}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, company_name: e.target.value })}
-                    placeholder="Artisan Works"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">City / Town</label>
                   <input
                     type="text"
-                    value={supplierForm.city}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value })}
-                    placeholder="e.g. Swamimalai / Kumbakonam"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
+                    value={quickSupplierForm.city}
+                    onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, city: e.target.value })}
+                    placeholder="Swamimalai"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">GST Number (Optional)</label>
+                  <input
+                    type="text"
+                    value={quickSupplierForm.gst_number}
+                    onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, gst_number: e.target.value.toUpperCase() })}
+                    placeholder="GSTIN (optional)"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 font-mono uppercase"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Status</label>
-                <select
-                  value={supplierForm.status}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, status: e.target.value.toLowerCase() })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowSupplierModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
+                  onClick={() => setShowQuickSupplierModal(false)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
-                  Save Supplier
+                  <i className="fas fa-check"></i> Save & Select Supplier
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. VIEW SUPPLIER PROFILE MODAL (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod) */}
+      {/* ========================================================================= */}
+      {showViewSupplierModal && selectedSupplierForView && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-6 py-10">
+            <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+                <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  <i className="fas fa-eye text-indigo-600"></i> View Supplier Details
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowViewSupplierModal(false)}
+                  className="text-slate-400 hover:text-rose-500 p-2 rounded-xl transition-colors cursor-pointer"
+                >
+                  <i className="fas fa-times text-lg"></i>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Supplier Profile Info Header */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {selectedSupplierForView.supplier_code || 'SUP-001'}
+                    </span>
+                    <h2 className="text-lg font-extrabold text-slate-900 mt-1">{selectedSupplierForView.name}</h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {selectedSupplierForView.city || 'Tamil Nadu'}, {selectedSupplierForView.state || 'Tamil Nadu'}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                      (selectedSupplierForView.status || 'active').toLowerCase() === 'active'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {(selectedSupplierForView.status || 'Active').toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Mobile Number</span>
+                    <strong className="font-mono text-slate-800 text-sm">{selectedSupplierForView.mobile || '—'}</strong>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Email Address</span>
+                    <strong className="text-slate-800 text-sm truncate block">{selectedSupplierForView.email || '—'}</strong>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">GST Number</span>
+                    <strong className="font-mono text-slate-800 text-sm">{selectedSupplierForView.gstin || selectedSupplierForView.gst_number || 'Unregistered'}</strong>
+                  </div>
+                  <div className="sm:col-span-2 md:col-span-3 bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Workshop / Business Address</span>
+                    <strong className="text-slate-800 text-xs block mt-0.5">{selectedSupplierForView.address || '—'}</strong>
+                  </div>
+                </div>
+
+                {/* Financial KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                    <span className="text-[10px] uppercase font-bold text-indigo-700 block">Total Purchased</span>
+                    <span className="text-base font-black text-indigo-950 font-mono">
+                      ₹{parseFloat(selectedSupplierForView.total_purchased || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 block">Total Paid</span>
+                    <span className="text-base font-black text-emerald-950 font-mono">
+                      ₹{parseFloat(selectedSupplierForView.total_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
+                    <span className="text-[10px] uppercase font-bold text-rose-700 block">Outstanding Payable</span>
+                    <span className="text-base font-black text-rose-950 font-mono">
+                      ₹{parseFloat(selectedSupplierForView.outstanding_balance || selectedSupplierForView.balance_due || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Products Associated */}
+                <div>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 mb-2 flex items-center justify-between">
+                    <span>Products Supplied</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowViewSupplierModal(false);
+                        openSupplierSheet(selectedSupplierForView);
+                      }}
+                      className="text-indigo-600 hover:text-indigo-800 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <i className="fas fa-table text-[10px]"></i> Open Detailed Sheet
+                    </button>
+                  </h4>
+
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 max-h-56 overflow-y-auto">
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200 sticky top-0">
+                        <tr>
+                          <th className="py-2 px-3">Product Name</th>
+                          <th className="py-2 px-3">Stock</th>
+                          <th className="py-2 px-3">Cost Rate</th>
+                          <th className="py-2 px-3">Selling Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {products
+                          .filter(
+                            (p) => String(p.supplier_id) === String(selectedSupplierForView._id) || String(p.supplier_id) === String(selectedSupplierForView.legacyId) || p.supplier_name === selectedSupplierForView.name
+                          )
+                          .map((p) => (
+                            <tr key={p._id || p.id} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-semibold text-slate-900">{p.name}</td>
+                              <td className="py-2 px-3 font-mono">{p.current_stock || 0}</td>
+                              <td className="py-2 px-3 font-mono">₹{p.piece_rate || p.purchase_price || 0}</td>
+                              <td className="py-2 px-3 font-mono font-bold text-emerald-700">₹{p.selling_price || 0}</td>
+                            </tr>
+                          ))}
+                        {products.filter(
+                          (p) => String(p.supplier_id) === String(selectedSupplierForView._id) || String(p.supplier_id) === String(selectedSupplierForView.legacyId) || p.supplier_name === selectedSupplierForView.name
+                        ).length === 0 && (
+                          <tr>
+                            <td colSpan="4" className="py-6 text-center text-slate-400">
+                              No products found for this supplier.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowViewSupplierModal(false)}
+                  className="px-5 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-300 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

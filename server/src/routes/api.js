@@ -59,7 +59,9 @@ router.delete('/customers/:id', protect, customerController.deleteCustomer);
 router.get('/suppliers', protect, supplierController.getSuppliers);
 router.get('/suppliers/:id', protect, supplierController.getSupplierById);
 router.post('/suppliers', protect, supplierController.createSupplier);
+router.post('/suppliers/save-with-products', protect, supplierController.saveWithProducts);
 router.put('/suppliers/:id', protect, supplierController.updateSupplier);
+router.delete('/suppliers/:id', protect, supplierController.deleteSupplier);
 router.post('/suppliers/:id/pay', protect, supplierController.recordPayment);
 
 // 8. Sourcing Purchases (Procurement)
