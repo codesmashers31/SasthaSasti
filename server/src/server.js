@@ -38,17 +38,22 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Health check & Root Info
+app.get(['/', '/health', '/api/health'], (req, res) => {
   res.json({
     status: 'online',
     app: 'Divya Murti ERP & Sacred POS Server',
     time: new Date().toISOString(),
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth/login',
+    },
   });
 });
 
-// API Routes
+// API Routes (mounted on both /api and root / for resilience)
 app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
