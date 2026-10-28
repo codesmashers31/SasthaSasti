@@ -13,6 +13,39 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState(getTodayISO());
   const [endDate, setEndDate] = useState(getTodayISO());
 
+  // Target Goal & Period Configuration State (stored in localStorage)
+  const getInitialTargetConfig = () => {
+    try {
+      const saved = localStorage.getItem('divya_murti_target_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
+    return {
+      targetGoal: 50000,
+      targetStart: firstDay,
+      targetEnd: today,
+      targetPreset: 'month',
+    };
+  };
+
+  const [targetConfig, setTargetConfig] = useState(getInitialTargetConfig);
+
+  // Target Modal State
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [modalGoal, setModalGoal] = useState(targetConfig.targetGoal);
+  const [modalStart, setModalStart] = useState(targetConfig.targetStart);
+  const [modalEnd, setModalEnd] = useState(targetConfig.targetEnd);
+  const [modalPreset, setModalPreset] = useState(targetConfig.targetPreset);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewStats, setPreviewStats] = useState({
+    billedSales: 0,
+    billsCount: 0,
+    achievedPercent: 0,
+    remaining: 0,
+  });
+
   const [stats, setStats] = useState({
     todaySales: 0,
     todayInvoicesCount: 0,
@@ -28,6 +61,8 @@ export default function Dashboard() {
     expectedProfit: 49306.64,
     achievedPercent: 98.6,
     targetGoal: 50000.0,
+    targetStartDate: targetConfig.targetStart,
+    targetEndDate: targetConfig.targetEnd,
     targetDateRange: '30 Sep - 30 Oct 2026',
     remainingToGoal: 693.36,
     billedSalesMonth: 120806.64,
@@ -43,13 +78,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardStats();
-  }, [period]);
+  }, [period, targetConfig]);
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = async (
+    overrideStart = targetConfig.targetStart,
+    overrideEnd = targetConfig.targetEnd,
+    overrideGoal = targetConfig.targetGoal
+  ) => {
     try {
       setLoading(true);
       const res = await api.get(
-        `/dashboard/stats?period=${period}&start_date=${startDate}&end_date=${endDate}`
+        `/dashboard/stats?period=${period}&start_date=${startDate}&end_date=${endDate}&target_start_date=${overrideStart}&target_end_date=${overrideEnd}&target_goal=${overrideGoal}`
       );
       if (res && res.stats) {
         setStats((prev) => ({
@@ -69,6 +108,9 @@ export default function Dashboard() {
           expectedProfit: res.stats.expectedProfit ?? prev.expectedProfit,
           achievedPercent: res.stats.achievedPercent ?? prev.achievedPercent,
           targetGoal: res.stats.targetGoal ?? prev.targetGoal,
+          targetDateRange: res.stats.targetDateRange ?? prev.targetDateRange,
+          targetStartDate: overrideStart,
+          targetEndDate: overrideEnd,
           remainingToGoal: res.stats.remainingToGoal ?? prev.remainingToGoal,
           billedSalesMonth: res.stats.billedSalesMonth ?? prev.billedSalesMonth,
           billedBillsMonth: res.stats.billedBillsMonth ?? prev.billedBillsMonth,
@@ -85,6 +127,88 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Open Target Modal & calculate live preview
+  const openTargetModal = () => {
+    setModalGoal(targetConfig.targetGoal);
+    setModalStart(targetConfig.targetStart);
+    setModalEnd(targetConfig.targetEnd);
+    setModalPreset(targetConfig.targetPreset);
+    setIsTargetModalOpen(true);
+    updateModalPreview(targetConfig.targetStart, targetConfig.targetEnd, targetConfig.targetGoal);
+  };
+
+  // Handle Preset changes inside modal
+  const handleModalPresetChange = (preset) => {
+    setModalPreset(preset);
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    let start = todayStr;
+    let end = todayStr;
+
+    if (preset === 'today') {
+      start = todayStr;
+      end = todayStr;
+    } else if (preset === 'month') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      start = firstDay.toISOString().split('T')[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      end = lastDay.toISOString().split('T')[0];
+    } else if (preset === 'year') {
+      const firstDayOfYear = new Date(now.getFullYear(), 0, 1);
+      start = firstDayOfYear.toISOString().split('T')[0];
+      const lastDayOfYear = new Date(now.getFullYear(), 11, 31);
+      end = lastDayOfYear.toISOString().split('T')[0];
+    }
+
+    setModalStart(start);
+    setModalEnd(end);
+    updateModalPreview(start, end, modalGoal);
+  };
+
+  // Query live preview calculation
+  const updateModalPreview = async (start, end, goal) => {
+    try {
+      setPreviewLoading(true);
+      const res = await api.get(
+        `/dashboard/stats?target_start_date=${start}&target_end_date=${end}&target_goal=${goal}`
+      );
+      if (res && res.stats) {
+        const sales = res.stats.billedSalesMonth || 0;
+        const bills = res.stats.billedBillsMonth || 0;
+        const g = parseFloat(goal) || 1;
+        const achieved = Math.round((sales / g) * 1000) / 10;
+        const remaining = Math.max(0, g - sales);
+        setPreviewStats({
+          billedSales: sales,
+          billsCount: bills,
+          achievedPercent: achieved,
+          remaining: remaining,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Save Target Config from modal
+  const handleSaveTarget = () => {
+    const config = {
+      targetGoal: parseFloat(modalGoal) || 50000,
+      targetStart: modalStart,
+      targetEnd: modalEnd,
+      targetPreset: modalPreset,
+    };
+    setTargetConfig(config);
+    try {
+      localStorage.setItem('divya_murti_target_config', JSON.stringify(config));
+    } catch (e) {}
+    setIsTargetModalOpen(false);
+    fetchDashboardStats(modalStart, modalEnd, config.targetGoal);
   };
 
   const handlePeriodChange = (p) => {
@@ -340,29 +464,22 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 2: Expected Inventory Profit */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+        {/* Card 2: Expected Inventory Profit (Interactive Modal Trigger) */}
+        <div
+          onClick={openTargetModal}
+          className="lg:col-span-5 bg-white border border-slate-200 hover:border-blue-400 rounded-2xl p-5 shadow-sm hover:shadow-md flex flex-col justify-between cursor-pointer transition-all group"
+        >
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-slate-700">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-slate-700 group-hover:text-blue-700 transition-colors">
                 <i className="fas fa-bullseye text-blue-600"></i>
                 <span>EXPECTED INVENTORY PROFIT</span>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  const val = prompt('Enter Target Goal (₹):', stats.targetGoal);
-                  if (val && !isNaN(val)) {
-                    const newGoal = parseFloat(val);
-                    const newRem = Math.max(0, newGoal - stats.expectedProfit);
-                    const newAch = Math.round((stats.expectedProfit / newGoal) * 1000) / 10;
-                    setStats((prev) => ({
-                      ...prev,
-                      targetGoal: newGoal,
-                      remainingToGoal: newRem,
-                      achievedPercent: newAch,
-                    }));
-                  }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openTargetModal();
                 }}
                 className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
               >
@@ -411,14 +528,9 @@ export default function Dashboard() {
             </span>
             <button
               type="button"
-              onClick={() => {
-                const add = prompt('Adjust target goal or extra profit addition:');
-                if (add && !isNaN(add)) {
-                  setStats((prev) => ({
-                    ...prev,
-                    expectedProfit: prev.expectedProfit + parseFloat(add),
-                  }));
-                }
+              onClick={(e) => {
+                e.stopPropagation();
+                openTargetModal();
               }}
               className="text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer"
             >
@@ -533,6 +645,224 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
+      {/* ======================================================== */}
+      {/* 7. Interactive Target Goal & Profit Calculation Modal */}
+      {/* ======================================================== */}
+      {isTargetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-sm">
+                  <i className="fas fa-bullseye"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Set Target Goal & Profit Timeline
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Track sales, count, and achievement between dates
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTargetModalOpen(false)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-4">
+              {/* Quick Period Presets */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+                  Choose Period Preset:
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleModalPresetChange('today')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      modalPreset === 'today'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <i className="fas fa-sun text-[10px]"></i> Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModalPresetChange('month')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      modalPreset === 'month'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <i className="fas fa-calendar-alt text-[10px]"></i> This Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModalPresetChange('year')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      modalPreset === 'year'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <i className="fas fa-calendar text-[10px]"></i> This Year
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalPreset('custom')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      modalPreset === 'custom'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <i className="fas fa-sliders-h text-[10px]"></i> Custom
+                  </button>
+                </div>
+              </div>
+
+              {/* Target Goal Input */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Target Goal Amount (₹) <span className="text-rose-500">*</span>:
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-bold font-mono">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1000"
+                    value={modalGoal}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setModalGoal(val);
+                      updateModalPreview(modalStart, modalEnd, val);
+                    }}
+                    placeholder="e.g. 50000"
+                    className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-8 pr-3 py-2 text-sm font-mono font-bold text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Start Date & End Date Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Start Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={modalStart}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setModalStart(val);
+                      setModalPreset('custom');
+                      updateModalPreview(val, modalEnd, modalGoal);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-500 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    End Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={modalEnd}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setModalEnd(val);
+                      setModalPreset('custom');
+                      updateModalPreview(modalStart, val, modalGoal);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-500 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Real-Time Live Calculation Preview Box */}
+              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-blue-950">
+                  <span className="flex items-center gap-1.5">
+                    <i className="fas fa-chart-pie text-blue-600"></i>
+                    <span>Live Period Calculation:</span>
+                  </span>
+                  {previewLoading && (
+                    <span className="text-[11px] text-blue-600 flex items-center gap-1 font-normal">
+                      <i className="fas fa-spinner fa-spin text-xs"></i> Calculating...
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                      Billed Sales in Range
+                    </span>
+                    <strong className="text-slate-900 font-mono text-sm block mt-0.5">
+                      ₹{previewStats.billedSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </strong>
+                    <span className="text-[10px] text-slate-500">
+                      from {previewStats.billsCount} invoices
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                      Achievement Progress
+                    </span>
+                    <strong className="text-blue-600 font-mono text-sm block mt-0.5">
+                      {previewStats.achievedPercent}%
+                    </strong>
+                    <span className="text-[10px] text-amber-600 font-bold font-mono">
+                      Rem: ₹{previewStats.remaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Progress Bar */}
+                <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, previewStats.achievedPercent)}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTargetModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTarget}
+                  className="px-5 py-2 rounded-xl bg-[#c26700] hover:bg-[#b05d00] text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i className="fas fa-check"></i>
+                  <span>Apply & Update Target</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

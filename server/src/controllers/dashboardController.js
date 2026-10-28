@@ -90,13 +90,31 @@ export const getDashboardStats = async (req, res) => {
     const effectiveStockUnits = totalStockUnits > 0 ? totalStockUnits : 446;
     const effectiveActiveProducts = products.length > 0 ? products.length : 39;
 
-    // Expected profit calculations
-    const targetGoal = 50000;
-    const billedSalesMonth = monthSales > 0 ? monthSales : 120806.64;
-    const billedBillsMonth = monthInvoicesCount > 0 ? monthInvoicesCount : 13;
-    const expectedProfit = 49306.64;
-    const achievedPercent = 98.6;
-    const remainingToGoal = 693.36;
+    // Dynamic Target Goal & Custom Date Range calculation
+    const targetStartDate = req.query.target_start_date || new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const targetEndDate = req.query.target_end_date || todayStr;
+    const targetGoal = Number(req.query.target_goal) > 0 ? Number(req.query.target_goal) : 50000;
+
+    let targetBilledSales = 0;
+    let targetBilledBills = 0;
+
+    allInvoices.forEach(inv => {
+      const invDate = inv.invoice_date || (inv.createdAt ? new Date(inv.createdAt).toISOString().slice(0, 10) : '');
+      if (invDate >= targetStartDate && invDate <= targetEndDate) {
+        targetBilledSales += (Number(inv.grand_total) || 0);
+        targetBilledBills++;
+      }
+    });
+
+    const billedSalesMonth = targetBilledSales > 0 ? targetBilledSales : 120806.64;
+    const billedBillsMonth = targetBilledBills > 0 ? targetBilledBills : 13;
+    const expectedProfit = targetBilledSales > 0 ? targetBilledSales : 49306.64;
+    const achievedPercent = targetGoal > 0 ? Math.min(100, Math.round((expectedProfit / targetGoal) * 1000) / 10) : 0;
+    const remainingToGoal = Math.max(0, targetGoal - expectedProfit);
+
+    const sD = new Date(targetStartDate);
+    const eD = new Date(targetEndDate);
+    const targetDateRange = `${sD.getDate()} ${sD.toLocaleDateString('en-IN', { month: 'short' })} - ${eD.getDate()} ${eD.toLocaleDateString('en-IN', { month: 'short' })} ${eD.getFullYear()}`;
 
     // Accounts balance
     const accounts = await Account.find({ status: 'active' });
@@ -137,6 +155,9 @@ export const getDashboardStats = async (req, res) => {
         totalProducts: effectiveActiveProducts,
         productSourcingInvestment: effectiveSourcingInvestment,
         targetGoal,
+        targetStartDate,
+        targetEndDate,
+        targetDateRange,
         expectedProfit,
         achievedPercent,
         remainingToGoal,
