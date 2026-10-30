@@ -76,6 +76,7 @@ export const createSupplier = async (req, res) => {
   try {
     const body = { ...req.body };
     if (body.supplier_name && !body.name) body.name = body.supplier_name;
+    if (!body.name || !body.name.trim()) body.name = 'General Supplier';
     if (body.mobile_number && !body.mobile) body.mobile = body.mobile_number;
     if (body.gst_number && !body.gstin) body.gstin = body.gst_number;
     if (body.gstin && !body.gst_number) body.gst_number = body.gstin;
@@ -136,12 +137,8 @@ export const updateSupplier = async (req, res) => {
 
 export const saveWithProducts = async (req, res) => {
   try {
-    const name = (req.body.supplier_name || req.body.name || '').trim();
+    const name = (req.body.supplier_name || req.body.name || '').trim() || 'General Supplier';
     const mobile = (req.body.mobile_number || req.body.mobile || '').trim();
-
-    if (!name || !mobile) {
-      return res.status(400).json({ success: false, message: 'Supplier name and mobile number are required.' });
-    }
 
     const supplierId = req.body.supplier_id || req.body.id;
     let supplier = null;

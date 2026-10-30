@@ -110,6 +110,9 @@ export const scanBarcode = async (req, res) => {
 export const createProduct = async (req, res) => {
   try {
     const body = req.body;
+    if (!body.name || !body.name.trim()) {
+      return res.status(400).json({ success: false, message: 'Product Name is mandatory.' });
+    }
     
     // Auto-generate SKU if not provided
     if (!body.sku) {
@@ -283,7 +286,9 @@ export const saveProductDetail = async (req, res) => {
 
     for (const item of itemsToProcess) {
       const pName = (item.name || '').trim();
-      if (!pName) continue;
+      if (!pName) {
+        return res.status(400).json({ success: false, message: 'Product Name is mandatory for all products.' });
+      }
 
       // 1. Resolve or create Category
       const catName = (item.category || item.category_name || 'General').trim();

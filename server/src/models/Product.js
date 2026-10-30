@@ -22,7 +22,7 @@ const productSchema = new mongoose.Schema({
   piece_rate: { type: Number, default: 0 },
   margin_percentage: { type: Number, default: 60 },
   purchase_price: { type: Number, default: 0 },
-  selling_price: { type: Number, required: true, default: 0 },
+  selling_price: { type: Number, default: 0 },
   wholesale_price: { type: Number, default: 0 },
   discount_percent: { type: Number, default: 0 },
   mrp: { type: Number, default: 0 },

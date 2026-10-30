@@ -3,10 +3,10 @@ import mongoose from 'mongoose';
 const supplierSchema = new mongoose.Schema({
   legacyId: { type: Number, index: true },
   supplier_code: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
+  name: { type: String, default: 'General Supplier' },
   company_name: { type: String, default: '' },
   contact_person: { type: String, default: '' },
-  mobile: { type: String, required: true },
+  mobile: { type: String, default: '' },
   email: { type: String, default: '' },
   gstin: { type: String, default: '' },
   gst_number: { type: String, default: '' },

@@ -617,7 +617,7 @@ export default function Dashboard() {
                       {inv.invoice_no}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900">
-                      {inv.customer_name || 'Walk-in'}
+                      {inv.customer_name || 'Anonymous User'}
                     </td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${

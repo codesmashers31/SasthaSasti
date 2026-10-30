@@ -230,8 +230,9 @@ export default function CustomerInvoices() {
           </div>
           <div class="divider"></div>
           <div class="flex-between"><span>Inv: <b>${inv.invoice_no}</b></span><span>${dateStr}</span></div>
-          <div>Customer: <b>${inv.customer_name}</b></div>
+          <div>Customer: <b>${inv.customer_name || 'Anonymous User'}</b></div>
           <div>Mobile: ${inv.customer_mobile || '—'}</div>
+          <div>Billed by: ${inv.created_by_name || 'Anonymous User'}</div>
           <div class="divider"></div>
           ${itemsHtml}
           <div class="divider"></div>
@@ -295,7 +296,7 @@ export default function CustomerInvoices() {
           <div style="margin-top: 16px; display: flex; justify-content: space-between; background: #f8fafc; padding: 12px; border-radius: 8px;">
             <div>
               <span style="font-size: 10px; text-transform: uppercase; font-weight: bold; color: #94a3b8;">Billed To</span>
-              <p style="margin: 3px 0; font-weight: bold; font-size: 14px;">${inv.customer_name}</p>
+              <p style="margin: 3px 0; font-weight: bold; font-size: 14px;">${inv.customer_name || 'Anonymous User'}</p>
               <p style="margin: 2px 0; font-size: 12px; color: #64748b;">Phone: ${inv.customer_mobile || '—'}</p>
             </div>
             <div style="text-align: right;">
@@ -592,7 +593,7 @@ export default function CustomerInvoices() {
                         })}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-bold text-slate-900 block">{inv.customer_name || 'Walk-in'}</span>
+                        <span className="font-bold text-slate-900 block">{inv.customer_name || 'Anonymous User'}</span>
                         <span className="text-[11px] text-slate-400 font-mono">{inv.customer_mobile || '—'}</span>
                       </td>
                       <td className="py-3 px-4">
@@ -813,7 +814,7 @@ export default function CustomerInvoices() {
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Customer</span>
-                  <p className="font-bold text-slate-900 text-sm">{selectedInvoice.customer_name}</p>
+                  <p className="font-bold text-slate-900 text-sm">{selectedInvoice.customer_name || 'Anonymous User'}</p>
                   <p className="text-slate-500 font-mono">{selectedInvoice.customer_mobile || '—'}</p>
                 </div>
                 <div className="text-right">

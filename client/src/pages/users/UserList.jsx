@@ -50,7 +50,14 @@ export default function UserList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/users', formData);
+      const payload = {
+        ...formData,
+        name: (formData.name && formData.name.trim()) ? formData.name.trim() : 'Anonymous User',
+        username: (formData.username && formData.username.trim()) ? formData.username.trim() : `user_${Date.now().toString().slice(-4)}`,
+        email: (formData.email && formData.email.trim()) ? formData.email.trim() : `user_${Date.now().toString().slice(-4)}@sasthasasti.com`,
+        password: formData.password || 'password123',
+      };
+      await api.post('/users', payload);
       alert('Staff user created successfully');
       setShowAddModal(false);
       setFormData({
@@ -155,22 +162,20 @@ export default function UserList() {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-3.5 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
+                <label className="font-bold text-slate-700 block mb-1">Full Name</label>
                 <input
                   type="text"
-                  required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Ramesh Sastri"
+                  placeholder="e.g. Ramesh Sastri (Defaults to Anonymous User)"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Username *</label>
+                <label className="font-bold text-slate-700 block mb-1">Username (Optional)</label>
                 <input
                   type="text"
-                  required
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="e.g. ramesh"
@@ -179,10 +184,9 @@ export default function UserList() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Email *</label>
+                <label className="font-bold text-slate-700 block mb-1">Email (Optional)</label>
                 <input
                   type="email"
-                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="ramesh@divyamurti.com"
@@ -191,10 +195,9 @@ export default function UserList() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Password *</label>
+                <label className="font-bold text-slate-700 block mb-1">Password (Optional)</label>
                 <input
                   type="password"
-                  required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"

@@ -55,7 +55,10 @@ export const getCustomerById = async (req, res) => {
 
 export const createCustomer = async (req, res) => {
   try {
-    const body = req.body;
+    const body = { ...req.body };
+    if (!body.name || !body.name.trim()) {
+      body.name = 'Anonymous User';
+    }
     if (!body.customer_code) {
       const count = await Customer.countDocuments();
       body.customer_code = `CUST-${String(count + 1).padStart(4, '0')}`;

@@ -3,10 +3,10 @@ import mongoose from 'mongoose';
 const customerSchema = new mongoose.Schema({
   legacyId: { type: Number, index: true },
   customer_code: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
+  name: { type: String, default: 'Anonymous User' },
   company_name: { type: String, default: '' },
   email: { type: String, default: '' },
-  mobile: { type: String, required: true, index: true },
+  mobile: { type: String, default: '', index: true },
   gstin: { type: String, default: '' },
   address_line1: { type: String, default: '' },
   address_line2: { type: String, default: '' },

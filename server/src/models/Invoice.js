@@ -22,7 +22,7 @@ const invoiceSchema = new mongoose.Schema({
   invoice_date: { type: String, required: true },
   invoice_time: { type: String, default: '' },
   customer_id: { type: mongoose.Schema.Types.Mixed, index: true },
-  customer_name: { type: String, required: true },
+  customer_name: { type: String, default: 'Anonymous User' },
   customer_mobile: { type: String, default: '' },
   customer_type: { type: String, default: 'retail' },
   subtotal: { type: Number, required: true, default: 0 },

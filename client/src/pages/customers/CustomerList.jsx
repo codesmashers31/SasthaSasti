@@ -72,10 +72,15 @@ export default function CustomerList() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        name: (formData.name && formData.name.trim()) ? formData.name.trim() : 'Anonymous User',
+        mobile: formData.mobile ? formData.mobile.trim() : '',
+      };
       if (editingCustomer) {
-        await api.put(`/customers/${editingCustomer._id || editingCustomer.id}`, formData);
+        await api.put(`/customers/${editingCustomer._id || editingCustomer.id}`, payload);
       } else {
-        await api.post('/customers', formData);
+        await api.post('/customers', payload);
       }
       setShowModal(false);
       fetchCustomers();
@@ -253,23 +258,21 @@ export default function CustomerList() {
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Full Name / Trust Name *</label>
+                <label className="block font-bold text-slate-700 mb-1">Full Name / Trust Name</label>
                 <input
                   type="text"
-                  required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Meenakshi Amman Temple Trust"
+                  placeholder="e.g. Meenakshi Amman Temple Trust (Defaults to Anonymous User)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:border-amber-500 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Mobile Number (10 digits) *</label>
+                  <label className="block font-bold text-slate-700 mb-1">Mobile Number (Optional)</label>
                   <input
                     type="tel"
-                    required
                     maxLength={10}
                     value={formData.mobile}
                     onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) })}

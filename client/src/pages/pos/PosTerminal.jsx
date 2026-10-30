@@ -264,14 +264,10 @@ export default function PosTerminal() {
       alert('Billing Cart is empty! Please add statues or items first.');
       return;
     }
-    // Validation: Customer Details are required for bill
-    if (!customerMobile.trim() || customerMobile.trim().length !== 10) {
-      alert('Customer 10-digit Mobile Number is required for billing. Please fill the Customer Details box.');
-      return;
-    }
+
+    // Default Customer Name to Anonymous User if empty
     if (!customerName.trim()) {
-      alert('Customer Name is required for billing. Please fill the Customer Details box.');
-      return;
+      setCustomerName('Anonymous User');
     }
 
     // Default cash amount to grand total
@@ -292,7 +288,7 @@ export default function PosTerminal() {
     const newHold = {
       id: Date.now(),
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      customerName: customerName || 'Walk-in Customer',
+      customerName: customerName.trim() || 'Anonymous User',
       customerMobile: customerMobile || '—',
       cart,
       overallDiscount,
@@ -309,7 +305,7 @@ export default function PosTerminal() {
 
   const resumeHeldBill = (bill) => {
     setCart(bill.cart);
-    setCustomerName(bill.customerName === 'Walk-in Customer' ? '' : bill.customerName);
+    setCustomerName(bill.customerName === 'Anonymous User' ? '' : bill.customerName);
     setCustomerMobile(bill.customerMobile === '—' ? '' : bill.customerMobile);
     setOverallDiscount(bill.overallDiscount || '');
     setTaxPreset(bill.taxPreset || '12');
@@ -339,11 +335,11 @@ export default function PosTerminal() {
 
   const handleQuickCustomerSubmit = async (e) => {
     e.preventDefault();
-    if (!quickCustName || !quickCustMobile) return;
+    const finalQuickName = quickCustName.trim() || 'Anonymous User';
     try {
       const res = await api.post('/customers', {
-        name: quickCustName,
-        mobile: quickCustMobile,
+        name: finalQuickName,
+        mobile: quickCustMobile.trim(),
         customer_type: 'retail',
       });
       if (res && res.data) {
@@ -353,8 +349,8 @@ export default function PosTerminal() {
       }
     } catch (err) {
       // If error or already exists, set directly
-      setCustomerName(quickCustName);
-      setCustomerMobile(quickCustMobile);
+      setCustomerName(finalQuickName);
+      setCustomerMobile(quickCustMobile.trim());
       setIsCustomerModalOpen(false);
     }
   };
@@ -365,9 +361,9 @@ export default function PosTerminal() {
       const primaryMethod = payMethodUpi && !payMethodCash ? 'upi' : payMethodCash && payMethodUpi ? 'split' : 'cash';
 
       const payload = {
-        customer_name: customerName,
-        customer_mobile: customerMobile,
-        customer_type: customerType,
+        customer_name: customerName.trim() || 'Anonymous User',
+        customer_mobile: customerMobile.trim(),
+        customer_type: customerType || 'retail',
         items: cart,
         overall_discount_amount: discountVal,
         bill_gst_percent: activeTaxRate,
@@ -436,8 +432,9 @@ export default function PosTerminal() {
           </div>
           <div class="divider"></div>
           <div class="flex-between"><span>Inv: <b>${completedInvoice.invoice_no}</b></span><span>${dateStr}</span></div>
-          <div>Customer: <b>${completedInvoice.customer_name}</b></div>
+          <div>Customer: <b>${completedInvoice.customer_name || 'Anonymous User'}</b></div>
           <div>Mobile: ${completedInvoice.customer_mobile || '—'}</div>
+          <div>Billed by: ${completedInvoice.created_by_name || 'Anonymous User'}</div>
           <div class="divider"></div>
           ${itemsHtml}
           <div class="divider"></div>
@@ -702,8 +699,8 @@ export default function PosTerminal() {
               </div>
               <span className="font-extrabold text-slate-800 text-xs tracking-tight flex items-center gap-1">
                 <span>Customer Details</span>
-                <span className="text-rose-600 text-[10px] font-black uppercase tracking-wider">
-                  (Required for Bill)
+                <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider">
+                  (Defaults to Anonymous User)
                 </span>
               </span>
             </div>
@@ -719,28 +716,28 @@ export default function PosTerminal() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Mobile No <span className="text-rose-600 font-black">*</span>
+                Mobile No (Optional)
               </label>
               <input
                 type="tel"
                 id="pos-customer-mobile"
                 value={customerMobile}
                 onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="10-digit Mobile Number *"
+                placeholder="10-digit Mobile Number"
                 maxLength={10}
                 className="w-full bg-white border border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none transition-all"
               />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Customer Name <span className="text-rose-600 font-black">*</span>
+                Customer Name (Optional)
               </label>
               <input
                 type="text"
                 id="pos-customer-name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Customer Full Name *"
+                placeholder="Customer Name (Defaults to Anonymous User)"
                 className="w-full bg-white border border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 outline-none transition-all"
               />
             </div>
@@ -1011,19 +1008,17 @@ export default function PosTerminal() {
                 <form onSubmit={handleQuickCustomerSubmit} className="space-y-2 text-xs">
                   <input
                     type="text"
-                    required
                     value={quickCustName}
                     onChange={(e) => setQuickCustName(e.target.value)}
-                    placeholder="Customer Full Name"
+                    placeholder="Customer Name (Defaults to Anonymous User)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-amber-500 outline-none transition-all"
                   />
                   <input
                     type="tel"
-                    required
                     maxLength={10}
                     value={quickCustMobile}
                     onChange={(e) => setQuickCustMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="Mobile Number (10 digits)"
+                    placeholder="Mobile Number (Optional)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:bg-white focus:border-amber-500 outline-none transition-all"
                   />
                   <button
@@ -1467,7 +1462,7 @@ export default function PosTerminal() {
               <span>
                 Customer:{' '}
                 <strong className="text-slate-900 font-bold">
-                  {completedInvoice.customer_name || 'Walk-in'}
+                  {completedInvoice.customer_name || 'Anonymous User'}
                 </strong>
               </span>
               <span className="text-slate-300">•</span>

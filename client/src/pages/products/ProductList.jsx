@@ -381,19 +381,21 @@ export default function ProductList() {
   const handleSaveProductDetail = async (e) => {
     e.preventDefault();
 
-    let suppId = productDetailForm.supplier_id;
-    if (!suppId && suppliers.length > 0) {
-      suppId = suppliers[0]._id || suppliers[0].legacyId;
-    }
-
-    if (!suppId) {
-      showToast('warning', 'Please select or register a supplier before saving products.');
-      return;
-    }
-
     if (!productDetailForm.products || productDetailForm.products.length === 0) {
       showToast('warning', 'At least one product entry is required.');
       return;
+    }
+
+    // MANDATORY: Product Name is the ONLY required field
+    const hasInvalidName = productDetailForm.products.some((p) => !p.name || !p.name.trim());
+    if (hasInvalidName) {
+      showToast('warning', 'Product Name is mandatory for all products.');
+      return;
+    }
+
+    let suppId = productDetailForm.supplier_id;
+    if (!suppId && suppliers.length > 0) {
+      suppId = suppliers[0]._id || suppliers[0].legacyId;
     }
 
     try {
@@ -402,10 +404,24 @@ export default function ProductList() {
         (k) => productDetailForm.payment_methods[k]
       );
 
+      const sanitizedProducts = productDetailForm.products.map((p) => ({
+        ...p,
+        name: p.name.trim(),
+        category: (p.category || '').trim() || 'General',
+        subcategory: (p.subcategory || '').trim(),
+        units: parseInt(p.units) >= 0 ? parseInt(p.units) : 1,
+        piece_rate: parseFloat(p.piece_rate) >= 0 ? parseFloat(p.piece_rate) : 0,
+        purchase_price: parseFloat(p.purchase_price) >= 0 ? parseFloat(p.purchase_price) : 0,
+        margin_percentage: parseFloat(p.margin_percentage) >= 0 ? parseFloat(p.margin_percentage) : 60,
+        selling_price: parseFloat(p.selling_price) >= 0 ? parseFloat(p.selling_price) : 0,
+        gst: parseFloat(p.gst) >= 0 ? parseFloat(p.gst) : 12,
+        barcode: (p.barcode || '').trim(),
+      }));
+
       const payload = {
         supplier_id: suppId,
-        supply_date: productDetailForm.supply_date,
-        products: productDetailForm.products,
+        supply_date: productDetailForm.supply_date || new Date().toISOString().split('T')[0],
+        products: sanitizedProducts,
         total_amount_purchased: productDetailForm.total_amount_purchased,
         total_amount_paid: productDetailForm.total_amount_paid,
         balance_amount: productDetailForm.balance_amount,
@@ -569,14 +585,10 @@ export default function ProductList() {
 
   const handleQuickSupplierSubmit = async (e) => {
     e.preventDefault();
-    if (!quickSupplierForm.name.trim() || !quickSupplierForm.mobile.trim()) {
-      showToast('warning', 'Supplier name and mobile number are required.');
-      return;
-    }
     try {
       setIsSavingQuickSupplier(true);
       const payload = {
-        name: quickSupplierForm.name.trim(),
+        name: quickSupplierForm.name.trim() || 'General Supplier',
         mobile: quickSupplierForm.mobile.trim(),
         city: quickSupplierForm.city.trim() || 'Swamimalai',
         gst_number: quickSupplierForm.gst_number.trim().toUpperCase(),
@@ -604,25 +616,17 @@ export default function ProductList() {
 
   const handleFullSupplierSubmit = async (e) => {
     e.preventDefault();
-    if (!fullSupplierForm.supplier_name.trim()) {
-      showToast('warning', 'Supplier name is required.');
-      return;
-    }
-    if (!fullSupplierForm.mobile_number.trim()) {
-      showToast('warning', 'Mobile number is required.');
-      return;
-    }
 
     try {
       setIsSavingSupplier(true);
 
       const payload = {
         supplier_id: fullSupplierForm.id,
-        supplier_name: fullSupplierForm.supplier_name.trim(),
+        supplier_name: fullSupplierForm.supplier_name.trim() || 'General Supplier',
         contact_person: (fullSupplierForm.contact_person || '').trim(),
         mobile_number: fullSupplierForm.mobile_number.trim(),
         email: (fullSupplierForm.email || '').trim(),
-        purchase_date: fullSupplierForm.purchase_date,
+        purchase_date: fullSupplierForm.purchase_date || new Date().toISOString().split('T')[0],
         address: (fullSupplierForm.address || '').trim(),
         city: (fullSupplierForm.city || '').trim() || 'Swamimalai',
         state: (fullSupplierForm.state || '').trim() || 'Tamil Nadu',
@@ -1592,13 +1596,12 @@ export default function ProductList() {
                   {/* Supply Date */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Supply / Purchase Date <span className="text-rose-500">*</span>
+                      Supply / Purchase Date
                     </label>
                     <input
                       type="date"
                       value={productDetailForm.supply_date}
                       onChange={(e) => setProductDetailForm({ ...productDetailForm, supply_date: e.target.value })}
-                      required
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm font-mono outline-none focus:border-indigo-500 transition-all cursor-pointer"
                     />
                   </div>
@@ -1638,10 +1641,10 @@ export default function ProductList() {
                         </button>
                       )}
 
-                      {/* Product Name */}
+                      {/* Product Name - MANDATORY */}
                       <div className="md:col-span-1">
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          Product Name <span className="text-rose-500">*</span>
+                          Product Name <span className="text-rose-500 font-extrabold">* (Mandatory)</span>
                         </label>
                         <input
                           type="text"
@@ -1656,15 +1659,14 @@ export default function ProductList() {
                       {/* Category */}
                       <div>
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          Category <span className="text-rose-500">*</span>
+                          Category
                         </label>
                         <input
                           type="text"
-                          required
                           list="cat-datalist"
                           value={row.category}
                           onChange={(e) => handleProductRowChange(idx, 'category', e.target.value)}
-                          placeholder="Search or type Category"
+                          placeholder="Search or type Category (Optional)"
                           className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 font-medium"
                         />
                       </div>
@@ -2046,28 +2048,26 @@ export default function ProductList() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Supplier Name <span className="text-rose-500">*</span>
+                        Supplier Name
                       </label>
                       <input
                         type="text"
-                        required
                         value={fullSupplierForm.supplier_name}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, supplier_name: e.target.value })}
-                        placeholder="Enter supplier name (e.g. Swamimalai Bronze Works)"
+                        placeholder="Enter supplier name (Defaults to General Supplier)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
                       />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Mobile Number <span className="text-rose-500">*</span>
+                        Mobile Number
                       </label>
                       <input
                         type="tel"
-                        required
                         value={fullSupplierForm.mobile_number}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, mobile_number: e.target.value })}
-                        placeholder="Enter mobile number (e.g. 9876543210)"
+                        placeholder="Enter mobile number (Optional)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono font-medium text-slate-900"
                       />
                     </div>
@@ -2207,28 +2207,26 @@ export default function ProductList() {
             <form onSubmit={handleQuickSupplierSubmit} className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Supplier / Artisan Name <span className="text-rose-500">*</span>
+                  Supplier / Artisan Name
                 </label>
                 <input
                   type="text"
-                  required
                   value={quickSupplierForm.name}
                   onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, name: e.target.value })}
-                  placeholder="e.g. Swamimalai Bronze Works"
+                  placeholder="e.g. Swamimalai Bronze Works (Defaults to General Supplier)"
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium"
                 />
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Mobile Number <span className="text-rose-500">*</span>
+                  Mobile Number
                 </label>
                 <input
                   type="tel"
-                  required
                   value={quickSupplierForm.mobile}
                   onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, mobile: e.target.value })}
-                  placeholder="e.g. 9876543210"
+                  placeholder="e.g. 9876543210 (Optional)"
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono font-medium"
                 />
               </div>

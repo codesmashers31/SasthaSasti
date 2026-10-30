@@ -28,8 +28,8 @@ export const checkout = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Billing cart is empty. Please add items.' });
     }
 
-    // Customer handling
-    let finalCustomerName = customer_name ? customer_name.trim() : 'Walk-in Retail Customer';
+    // Customer handling - defaults to "Anonymous User" if not provided
+    let finalCustomerName = (customer_name && customer_name.trim()) ? customer_name.trim() : 'Anonymous User';
     let finalCustomerMobile = customer_mobile ? customer_mobile.trim() : '';
     let customerDoc = null;
 
@@ -51,7 +51,7 @@ export const checkout = async (req, res) => {
       customerDoc = await Customer.create({
         customer_code: custCode,
         name: finalCustomerName,
-        mobile: finalCustomerMobile || '0000000000',
+        mobile: finalCustomerMobile || '',
         customer_type: 'retail',
         status: 'active',
       });
@@ -185,7 +185,7 @@ export const checkout = async (req, res) => {
       notes,
       status: 'completed',
       created_by: req.user ? req.user.legacyId || 1 : 1,
-      created_by_name: req.user ? req.user.name : 'Billing Staff',
+      created_by_name: (req.user && req.user.name) ? req.user.name : 'Anonymous User',
       items: validatedItems,
     });
 
