@@ -1511,7 +1511,7 @@ export default function ProductList() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-bold text-slate-700">
-                        Supplier Name <span className="text-rose-500">*</span>
+                        Supplier Name
                       </label>
                       <button
                         type="button"
@@ -1644,7 +1644,7 @@ export default function ProductList() {
                       {/* Product Name - MANDATORY */}
                       <div className="md:col-span-1">
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          Product Name <span className="text-rose-500 font-extrabold">* (Mandatory)</span>
+                          Product Name <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="text"
