@@ -102,19 +102,6 @@ export default function ProductList() {
   const [showViewSupplierModal, setShowViewSupplierModal] = useState(false);
   const [selectedSupplierForView, setSelectedSupplierForView] = useState(null);
 
-  const initialSupplierProductRow = () => ({
-    name: '',
-    category: '',
-    subcategory: '',
-    units: 1,
-    piece_rate: 0,
-    purchase_price: 0,
-    margin_percentage: 60.0,
-    selling_price: 0,
-    gst: 12,
-    barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-  });
-
   const [fullSupplierForm, setFullSupplierForm] = useState({
     id: null,
     supplier_name: '',
@@ -457,6 +444,7 @@ export default function ProductList() {
     setFullSupplierForm({
       id: null,
       supplier_name: '',
+      contact_person: '',
       mobile_number: '',
       email: '',
       purchase_date: new Date().toISOString().split('T')[0],
@@ -530,6 +518,7 @@ export default function ProductList() {
     setFullSupplierForm({
       id: s._id || s.id,
       supplier_name: s.name || s.supplier_name || '',
+      contact_person: s.contact_person || '',
       mobile_number: s.mobile || s.mobile_number || '',
       email: s.email || '',
       purchase_date: s.purchase_date || new Date().toISOString().split('T')[0],
@@ -613,131 +602,6 @@ export default function ProductList() {
     }
   };
 
-  const addSupplierProductRow = () => {
-    setFullSupplierForm((prev) => {
-      const newProducts = [...prev.products, initialSupplierProductRow()];
-      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
-      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
-      return {
-        ...prev,
-        products: newProducts,
-        total_amount_purchased: totalPurchased,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
-  const updateSupplierProductRow = (idx, field, value) => {
-    setFullSupplierForm((prev) => {
-      const newProducts = [...prev.products];
-      const row = { ...newProducts[idx], [field]: value };
-
-      if (field === 'units' || field === 'piece_rate') {
-        const u = Math.max(0, parseInt(field === 'units' ? value : row.units) || 0);
-        const pr = Math.max(0, parseFloat(field === 'piece_rate' ? value : row.piece_rate) || 0);
-        row.units = u;
-        row.piece_rate = pr;
-        row.purchase_price = u * pr;
-        const m = parseFloat(row.margin_percentage) || 60;
-        row.selling_price = Math.round((pr * (1 + m / 100)) * 100) / 100;
-      } else if (field === 'margin_percentage') {
-        const m = parseFloat(value) || 0;
-        row.margin_percentage = m;
-        row.selling_price = Math.round((row.piece_rate * (1 + m / 100)) * 100) / 100;
-      } else if (field === 'selling_price') {
-        const sp = parseFloat(value) || 0;
-        row.selling_price = sp;
-        if (row.piece_rate > 0) {
-          row.margin_percentage = Math.round((((sp - row.piece_rate) / row.piece_rate) * 100) * 100) / 100;
-        }
-      }
-
-      newProducts[idx] = row;
-      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
-      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
-
-      return {
-        ...prev,
-        products: newProducts,
-        total_amount_purchased: totalPurchased,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
-  const removeSupplierProductRow = (idx) => {
-    setFullSupplierForm((prev) => {
-      const newProducts = prev.products.filter((_, i) => i !== idx);
-      const totalPurchased = newProducts.reduce((sum, r) => sum + (parseFloat(r.purchase_price) || 0), 0);
-      const balance = Math.max(0, totalPurchased - prev.total_amount_paid);
-      return {
-        ...prev,
-        products: newProducts,
-        total_amount_purchased: totalPurchased,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
-  const toggleSupplierPaymentMethod = (method) => {
-    setFullSupplierForm((prev) => {
-      const nextChecked = !prev.payment_methods[method];
-      const newMethods = { ...prev.payment_methods, [method]: nextChecked };
-      const newAmounts = {
-        ...prev.payment_amounts,
-        [method]: nextChecked ? prev.payment_amounts[method] || '' : '',
-      };
-
-      const totalPaid = Object.keys(newAmounts).reduce((sum, k) => {
-        return sum + (newMethods[k] ? parseFloat(newAmounts[k]) || 0 : 0);
-      }, 0);
-
-      const balance = Math.max(0, prev.total_amount_purchased - totalPaid);
-      return {
-        ...prev,
-        payment_methods: newMethods,
-        payment_amounts: newAmounts,
-        total_amount_paid: totalPaid,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
-  const onSupplierPaymentAmountChange = (method, val) => {
-    setFullSupplierForm((prev) => {
-      const newAmounts = { ...prev.payment_amounts, [method]: val };
-      const totalPaid = Object.keys(newAmounts).reduce((sum, k) => {
-        return sum + (prev.payment_methods[k] ? parseFloat(newAmounts[k]) || 0 : 0);
-      }, 0);
-
-      const balance = Math.max(0, prev.total_amount_purchased - totalPaid);
-      return {
-        ...prev,
-        payment_amounts: newAmounts,
-        total_amount_paid: totalPaid,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
-  const onSupplierTotalPurchasedChange = (val) => {
-    const purch = parseFloat(val) || 0;
-    setFullSupplierForm((prev) => {
-      const balance = Math.max(0, purch - prev.total_amount_paid);
-      return {
-        ...prev,
-        total_amount_purchased: purch,
-        balance_amount: balance,
-        payment_status: balance <= 0 ? 'Paid' : prev.total_amount_paid > 0 ? 'Partially Paid' : 'Unpaid',
-      };
-    });
-  };
-
   const handleFullSupplierSubmit = async (e) => {
     e.preventDefault();
     if (!fullSupplierForm.supplier_name.trim()) {
@@ -751,31 +615,20 @@ export default function ProductList() {
 
     try {
       setIsSavingSupplier(true);
-      const selectedMethods = Object.keys(fullSupplierForm.payment_methods).filter(
-        (k) => fullSupplierForm.payment_methods[k]
-      );
 
       const payload = {
         supplier_id: fullSupplierForm.id,
         supplier_name: fullSupplierForm.supplier_name.trim(),
+        contact_person: (fullSupplierForm.contact_person || '').trim(),
         mobile_number: fullSupplierForm.mobile_number.trim(),
-        email: fullSupplierForm.email.trim(),
+        email: (fullSupplierForm.email || '').trim(),
         purchase_date: fullSupplierForm.purchase_date,
-        address: fullSupplierForm.address.trim(),
-        city: fullSupplierForm.city.trim() || 'Swamimalai',
-        state: fullSupplierForm.state.trim() || 'Tamil Nadu',
-        gst_number: fullSupplierForm.gst_number.trim().toUpperCase(),
+        address: (fullSupplierForm.address || '').trim(),
+        city: (fullSupplierForm.city || '').trim() || 'Swamimalai',
+        state: (fullSupplierForm.state || '').trim() || 'Tamil Nadu',
+        gst_number: (fullSupplierForm.gst_number || '').trim().toUpperCase(),
         status: (fullSupplierForm.status || 'Active').toLowerCase(),
-        products: fullSupplierForm.products,
-        total_amount_purchased: fullSupplierForm.total_amount_purchased,
-        payment_methods: selectedMethods.join(', '),
-        payment_amount_cash: fullSupplierForm.payment_amounts.Cash || 0,
-        payment_amount_card: fullSupplierForm.payment_amounts.Card || 0,
-        payment_amount_upi: fullSupplierForm.payment_amounts.UPI || 0,
-        payment_amount_bank: fullSupplierForm.payment_amounts['Bank Transfer'] || 0,
-        payment_amount_credit: fullSupplierForm.payment_amounts.Credit || 0,
-        total_amount_paid: fullSupplierForm.total_amount_paid,
-        balance_amount: fullSupplierForm.balance_amount,
+        products: [],
       };
 
       await api.post('/suppliers/save-with-products', payload);
@@ -2161,7 +2014,7 @@ export default function ProductList() {
       {showSupplierModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-6 py-10">
-            <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto">
+            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl relative animate-in fade-in zoom-in-95 mx-auto border border-slate-200 overflow-hidden">
               {/* Modal Header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
                 <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
@@ -2171,7 +2024,7 @@ export default function ProductList() {
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-truck-loading text-indigo-600"></i> Add Supplier
+                      <i className="fas fa-truck text-indigo-600"></i> Add Supplier
                     </>
                   )}
                 </h3>
@@ -2185,11 +2038,10 @@ export default function ProductList() {
               </div>
 
               {/* Form Content */}
-              <form onSubmit={handleFullSupplierSubmit} className="p-6 space-y-8">
-                {/* 1. Supplier Information */}
-                <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+              <form onSubmit={handleFullSupplierSubmit} className="p-6 space-y-6">
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200/80">
                   <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 flex items-center">
-                    <i className="fas fa-user-tag text-indigo-500 mr-2"></i>1. Supplier Information
+                    <i className="fas fa-user-tag text-indigo-500 mr-2"></i>Supplier Information
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -2201,7 +2053,7 @@ export default function ProductList() {
                         required
                         value={fullSupplierForm.supplier_name}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, supplier_name: e.target.value })}
-                        placeholder="Enter supplier name (e.g. Swamimalai Bronze Heritage Works)"
+                        placeholder="Enter supplier name (e.g. Swamimalai Bronze Works)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
                       />
                     </div>
@@ -2221,6 +2073,17 @@ export default function ProductList() {
                     </div>
 
                     <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        value={fullSupplierForm.contact_person || ''}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, contact_person: e.target.value })}
+                        placeholder="Master Devasenapathy (Optional)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
+                      />
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
                       <input
                         type="email"
@@ -2232,33 +2095,12 @@ export default function ProductList() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Purchase Date</label>
-                      <input
-                        type="date"
-                        value={fullSupplierForm.purchase_date}
-                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, purchase_date: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900 font-mono"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Address</label>
-                      <input
-                        type="text"
-                        value={fullSupplierForm.address}
-                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, address: e.target.value })}
-                        placeholder="Enter street address / workshop location"
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
-                      />
-                    </div>
-
-                    <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">City</label>
                       <input
                         type="text"
                         value={fullSupplierForm.city}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, city: e.target.value })}
-                        placeholder="e.g. Kumbakonam / Thanjavur / Madurai"
+                        placeholder="e.g. Kumbakonam / Swamimalai"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
                       />
                     </div>
@@ -2296,255 +2138,22 @@ export default function ProductList() {
                         <option value="Inactive">Inactive</option>
                       </select>
                     </div>
-                  </div>
-                </div>
 
-                {/* 2. Products Supplied */}
-                <div className="bg-amber-50/30 p-5 rounded-xl border border-amber-200/80">
-                  <div className="flex items-center justify-between border-b border-amber-200 pb-2 mb-4">
-                    <h4 className="text-sm font-bold text-slate-800 flex items-center">
-                      <i className="fas fa-box-open text-amber-500 mr-2"></i>2. Products Supplied
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={addSupplierProductRow}
-                      className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                    >
-                      <i className="fas fa-plus mr-1"></i> Add Another Product
-                    </button>
-                  </div>
-
-                  {fullSupplierForm.products.length === 0 ? (
-                    <div className="py-6 text-center text-slate-400 bg-white rounded-xl border border-dashed border-amber-200">
-                      <p className="text-xs">No products currently attached. Click "Add Another Product" above if supplying new items.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {fullSupplierForm.products.map((pRow, idx) => (
-                        <div
-                          key={idx}
-                          className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 border border-amber-200 rounded-xl bg-white shadow-xs"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => removeSupplierProductRow(idx)}
-                            className="absolute -top-2 -right-2 bg-rose-100 text-rose-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors shadow-sm cursor-pointer z-10"
-                            title="Remove Product"
-                          >
-                            <i className="fas fa-times text-xs"></i>
-                          </button>
-
-                          <div className="lg:col-span-2">
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Product Name</label>
-                            <input
-                              type="text"
-                              value={pRow.name}
-                              onChange={(e) => updateSupplierProductRow(idx, 'name', e.target.value)}
-                              placeholder="e.g. Brass Ganesha Idol"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800 font-semibold"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Category</label>
-                            <input
-                              type="text"
-                              value={pRow.category}
-                              onChange={(e) => updateSupplierProductRow(idx, 'category', e.target.value)}
-                              placeholder="e.g. Brass Idols"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Subcategory</label>
-                            <input
-                              type="text"
-                              value={pRow.subcategory}
-                              onChange={(e) => updateSupplierProductRow(idx, 'subcategory', e.target.value)}
-                              placeholder="e.g. Ganesha"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Pieces Count</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={pRow.units}
-                              onChange={(e) => updateSupplierProductRow(idx, 'units', e.target.value)}
-                              placeholder="e.g. 10"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">One Piece Rate (₹)</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={pRow.piece_rate}
-                              onChange={(e) => updateSupplierProductRow(idx, 'piece_rate', e.target.value)}
-                              placeholder="e.g. 1500"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Total Purchase Price (₹)</label>
-                            <input
-                              type="number"
-                              value={pRow.purchase_price}
-                              readOnly
-                              className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700 cursor-not-allowed"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Margin % (Default 60%)</label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={pRow.margin_percentage}
-                              onChange={(e) => updateSupplierProductRow(idx, 'margin_percentage', e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Selling Price (₹)</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={pRow.selling_price}
-                              onChange={(e) => updateSupplierProductRow(idx, 'selling_price', e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-emerald-800 outline-none focus:border-amber-500 focus:bg-white"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">GST %</label>
-                            <input
-                              type="number"
-                              value={pRow.gst}
-                              onChange={(e) => updateSupplierProductRow(idx, 'gst', e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-
-                          <div className="lg:col-span-2">
-                            <label className="block text-[10px] font-bold text-slate-700 mb-1">Barcode</label>
-                            <input
-                              type="text"
-                              value={pRow.barcode}
-                              onChange={(e) => updateSupplierProductRow(idx, 'barcode', e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-amber-500 focus:bg-white text-slate-800"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Payment Information */}
-                <div className="bg-emerald-50/30 p-5 rounded-xl border border-emerald-200/80">
-                  <div className="flex items-center justify-between border-b border-emerald-200 pb-2 mb-4">
-                    <h4 className="text-sm font-bold text-slate-800 flex items-center">
-                      <i className="fas fa-credit-card text-emerald-500 mr-2"></i>3. Payment Information
-                    </h4>
-                    <span
-                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
-                        fullSupplierForm.payment_status === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : fullSupplierForm.payment_status === 'Partially Paid'
-                          ? 'bg-amber-100 text-amber-800 border-amber-300'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      Status: {fullSupplierForm.payment_status}
-                    </span>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Total Amount Purchased (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={fullSupplierForm.total_amount_purchased}
-                      onChange={(e) => onSupplierTotalPurchasedChange(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full md:w-1/2 bg-white border border-slate-300 text-slate-900 font-bold rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
-                    />
-                  </div>
-
-                  <label className="block text-xs font-bold text-slate-700 mb-3">Select Payment Methods</label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
-                    {['Cash', 'Card', 'UPI', 'Bank Transfer', 'Credit'].map((method) => {
-                      const isChecked = !!fullSupplierForm.payment_methods[method];
-                      return (
-                        <div
-                          key={method}
-                          className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-2 hover:border-emerald-300 transition-all"
-                        >
-                          <label className="flex items-center gap-2 cursor-pointer w-full">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => toggleSupplierPaymentMethod(method)}
-                              className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
-                            />
-                            <span className="text-sm font-bold text-slate-700">{method}</span>
-                          </label>
-                          {isChecked && (
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={fullSupplierForm.payment_amounts[method] || ''}
-                              onChange={(e) => onSupplierPaymentAmountChange(method, e.target.value)}
-                              placeholder={`${method} (₹)`}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono font-bold text-slate-900"
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-emerald-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Total Amount Paid (₹)</label>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Address</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={fullSupplierForm.total_amount_paid}
-                        readOnly
-                        className="w-full bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono cursor-not-allowed"
+                        type="text"
+                        value={fullSupplierForm.address}
+                        onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, address: e.target.value })}
+                        placeholder="Enter street address / workshop location"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Balance to Pay (₹)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={fullSupplierForm.balance_amount}
-                        readOnly
-                        className="w-full bg-rose-50 border border-rose-200 text-rose-800 font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono cursor-not-allowed"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        Formula: Balance = Total Amount Purchased - Total Amount Paid
-                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex items-center justify-end gap-3 sticky bottom-0 z-10">
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setShowSupplierModal(false)}
