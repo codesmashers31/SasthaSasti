@@ -88,14 +88,14 @@ export default function ProductList() {
       for (const p of existingProducts) {
         if (!p || !p.barcode) continue;
         const bStr = String(p.barcode).trim();
-        // Ignore old random 10+ digit barcodes (like 8904056413276) and old hyphenated randoms (SS-8462)
-        if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+        // Ignore old random 10+ digit barcodes (like 8904056413276)
+        if (bStr.length >= 10 && /^\d+$/.test(bStr)) {
           continue;
         }
         const match = bStr.match(/(\d+)$/);
         if (match) {
           const val = parseInt(match[1], 10);
-          if (val > maxNum) {
+          if (val < 1000000 && val > maxNum) {
             maxNum = val;
           }
         }
@@ -107,20 +107,21 @@ export default function ProductList() {
       for (const r of currentRows) {
         if (!r || !r.barcode) continue;
         const bStr = String(r.barcode).trim();
-        if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+        if (bStr.length >= 10 && /^\d+$/.test(bStr)) {
           continue;
         }
         const match = bStr.match(/(\d+)$/);
         if (match) {
           const val = parseInt(match[1], 10);
-          if (val > maxNum) {
+          if (val < 1000000 && val > maxNum) {
             maxNum = val;
           }
         }
       }
     }
 
-    return String(maxNum + 1).padStart(3, '0');
+    const nextVal = maxNum > 0 ? maxNum + 1 : (existingProducts && existingProducts.length > 0 ? existingProducts.length + 1 : 1);
+    return String(nextVal);
   };
 
   // Multi-Product Entry Form State (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod)
@@ -135,13 +136,13 @@ export default function ProductList() {
     margin_percentage: 60.0,
     selling_price: '',
     gst: 0,
-    barcode: customBarcode !== undefined ? customBarcode : '001',
+    barcode: customBarcode !== undefined ? customBarcode : '1',
   });
 
   const [productDetailForm, setProductDetailForm] = useState({
     supplier_id: '',
     supply_date: new Date().toISOString().split('T')[0],
-    products: [initialProductRow('001')],
+    products: [initialProductRow('1')],
     total_amount_purchased: '',
     payment_methods: {
       Cash: false,
@@ -436,9 +437,10 @@ export default function ProductList() {
   const handleEditSingleProduct = (prod) => {
     setEditingProductId(prod._id || prod.id);
     const pieceRate = prod.piece_rate || (prod.current_stock > 0 ? prod.purchase_price / prod.current_stock : prod.purchase_price) || 0;
-    const units = prod.current_stock || 1;
-    const margin = prod.margin_percentage || 60;
-    const purchaseTotal = prod.purchase_price > 0 ? prod.purchase_price : units * pieceRate;
+    const units = prod.current_stock !== undefined ? prod.current_stock : 1;
+    const margin = prod.margin_percentage !== undefined ? prod.margin_percentage : 60;
+    const purchaseTotal = units > 0 && pieceRate > 0 ? Math.round(units * pieceRate * 100) / 100 : (prod.purchase_price > 0 ? prod.purchase_price : 0);
+    const sellingPrice = prod.selling_price || (pieceRate > 0 ? Math.round((pieceRate + pieceRate * (margin / 100)) * 100) / 100 : 0);
 
     const row = {
       id: prod._id || prod.id,
@@ -449,7 +451,7 @@ export default function ProductList() {
       piece_rate: pieceRate,
       purchase_price: purchaseTotal,
       margin_percentage: margin,
-      selling_price: prod.selling_price || 0,
+      selling_price: sellingPrice,
       gst: prod.gst_percent !== undefined ? prod.gst_percent : 0,
       barcode: prod.barcode || prod.sku,
     };
@@ -673,12 +675,16 @@ export default function ProductList() {
 
     try {
       setIsSavingProduct(true);
+      const isEdit = Boolean(editingProductId);
       const chosenMethods = Object.keys(productDetailForm.payment_methods).filter(
         (k) => productDetailForm.payment_methods[k]
       );
 
       const sanitizedProducts = productDetailForm.products.map((p) => ({
         ...p,
+        id: p.id || (isEdit ? editingProductId : undefined),
+        product_id: p.id || (isEdit ? editingProductId : undefined),
+        is_edit: isEdit,
         name: p.name.trim(),
         category: (p.category || '').trim() || 'General',
         subcategory: (p.subcategory || '').trim(),
@@ -692,6 +698,8 @@ export default function ProductList() {
       }));
 
       const payload = {
+        is_edit: isEdit,
+        editing_product_id: editingProductId,
         supplier_id: suppId,
         supply_date: productDetailForm.supply_date || new Date().toISOString().split('T')[0],
         products: sanitizedProducts,
@@ -717,6 +725,7 @@ export default function ProductList() {
       const res = await api.post('/products/save-detail', payload);
       showToast('success', (res && res.message) || 'Product(s) saved successfully!');
       setShowProductModal(false);
+      setEditingProductId(null);
       fetchInitialData();
     } catch (err) {
       console.error('Save product details error:', err);
@@ -1637,7 +1646,7 @@ export default function ProductList() {
 
             <div className="bg-white border border-indigo-200/90 rounded-xl p-3 shadow-xs">
               <span className="text-[10px] font-bold uppercase text-indigo-700/80 block">
-                <i className="fas fa-truck-loading text-indigo-500 mr-1"></i> Total Bought (Vangunom)
+                <i className="fas fa-truck-loading text-indigo-500 mr-1"></i> Total Purchased
               </span>
               <span className="text-base sm:text-lg font-black text-indigo-950 font-mono">
                 {totalBoughtUnits} Units
@@ -1646,7 +1655,7 @@ export default function ProductList() {
 
             <div className="bg-white border border-amber-200/90 rounded-xl p-3 shadow-xs">
               <span className="text-[10px] font-bold uppercase text-amber-700/80 block">
-                <i className="fas fa-coins text-amber-600 mr-1"></i> Total Invested (Invert)
+                <i className="fas fa-coins text-amber-600 mr-1"></i> Total Investment
               </span>
               <span className="text-base sm:text-lg font-black text-amber-900 font-mono">
                 ₹{totalInvestedInvert.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -1756,18 +1765,14 @@ export default function ProductList() {
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-amber-100/60 text-amber-800 uppercase text-[10px] font-extrabold border-b border-amber-200 tracking-wider">
                 <tr>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">Product & Barcode</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">Category & Vendor</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">Unit Rates (Cost / Sell)</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[180px]">
-                    Stock Movement (Vangunom / Sold / Stock)
-                  </th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[180px]">
-                    Total Investment & Sales (Invert / Sales)
-                  </th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[70px]">GST</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[90px]">Status</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[110px]">Actions</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">Product</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">Category & Supplier</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Cost / Sell</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[130px]">Stock</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[150px]">Investment / Sales</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[65px]">GST</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[85px]">Status</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[100px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-100 bg-white">
@@ -1838,7 +1843,7 @@ export default function ProductList() {
                         </td>
                         <td className="py-3.5 px-4 text-center font-mono">
                           <div className="flex items-center justify-center gap-1.5 text-xs">
-                            <span className="text-indigo-700 font-bold" title="Total Bought (Vangunom)">
+                            <span className="text-indigo-700 font-bold" title="Total Purchased">
                               {bought}
                             </span>
                             <span className="text-slate-300">/</span>
@@ -1850,7 +1855,7 @@ export default function ProductList() {
                               className={`font-black ${
                                 stock <= 0 ? 'text-rose-600' : stock <= 2 ? 'text-amber-600' : 'text-slate-900'
                               }`}
-                              title="Current Stock"
+                              title="Available Stock"
                             >
                               {stock}
                             </span>
@@ -2237,7 +2242,10 @@ export default function ProductList() {
               </h3>
               <button
                 type="button"
-                onClick={() => setShowProductModal(false)}
+                onClick={() => {
+                  setShowProductModal(false);
+                  setEditingProductId(null);
+                }}
                 className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors cursor-pointer"
               >
                 <i className="fas fa-times text-lg"></i>
@@ -2746,7 +2754,10 @@ export default function ProductList() {
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex items-center justify-end gap-3 sticky bottom-0 z-20">
               <button
                 type="button"
-                onClick={() => setShowProductModal(false)}
+                onClick={() => {
+                  setShowProductModal(false);
+                  setEditingProductId(null);
+                }}
                 className="px-5 py-2.5 rounded-xl text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
                 Cancel
@@ -3323,7 +3334,7 @@ export default function ProductList() {
                   <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 shadow-2xs">
                     <i className="fas fa-coins text-amber-600 text-xs"></i>
                     <div>
-                      <span className="text-[9px] text-amber-700/80 font-bold uppercase block leading-none">Total Invested (Invert)</span>
+                      <span className="text-[9px] text-amber-700/80 font-bold uppercase block leading-none">Total Investment</span>
                       <span className="text-xs font-black text-amber-950 font-mono leading-none">
                         ₹{totalInvestedInvert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
@@ -3405,7 +3416,7 @@ export default function ProductList() {
                       <th className="py-3 px-2 text-center min-w-[80px]">Sold</th>
                       <th className="py-3 px-2 text-center min-w-[80px]">In Stock</th>
                       <th className="py-3 px-3 text-center min-w-[110px]">Sales Status</th>
-                      <th className="py-3 px-3 text-right min-w-[130px]">Total Invested (Invert)</th>
+                      <th className="py-3 px-3 text-right min-w-[130px]">Total Investment</th>
                       <th className="py-3 px-3 text-right min-w-[130px]">Total Sold Value</th>
                     </tr>
                   </thead>

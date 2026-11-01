@@ -4,6 +4,7 @@ import SubCategory from '../models/SubCategory.js';
 import Supplier from '../models/Supplier.js';
 import InventoryTransaction from '../models/InventoryTransaction.js';
 import ActivityLog from '../models/ActivityLog.js';
+import Setting from '../models/Setting.js';
 
 export const getProducts = async (req, res) => {
   try {
@@ -94,19 +95,34 @@ export const getNextSequentialBarcode = async () => {
   for (const p of products) {
     if (!p || !p.barcode) continue;
     const bStr = String(p.barcode).trim();
-    // Exclude old random 10+ digit barcodes (e.g. 8904056413276) and old hyphenated randoms (SS-8462)
-    if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+    // Exclude old random 10+ digit barcodes (e.g. 8904056413276)
+    if (bStr.length >= 10 && /^\d+$/.test(bStr)) {
       continue;
     }
     const match = bStr.match(/(\d+)$/);
     if (match) {
       const val = parseInt(match[1], 10);
-      if (val > maxNum) {
+      if (val < 1000000 && val > maxNum) {
         maxNum = val;
       }
     }
   }
-  return String(maxNum + 1).padStart(3, '0');
+
+  const nextVal = maxNum > 0 ? maxNum + 1 : (products.length > 0 ? products.length + 1 : 1);
+
+  const formatSetting = await Setting.findOne({ key: 'barcode_format' }).lean();
+  const prefixSetting = await Setting.findOne({ key: 'barcode_prefix' }).lean();
+  const sepSetting = await Setting.findOne({ key: 'barcode_separator' }).lean();
+
+  const format = formatSetting ? formatSetting.value : 'numeric';
+  const prefix = prefixSetting ? prefixSetting.value : '';
+  const sep = sepSetting !== undefined && sepSetting !== null ? sepSetting.value : '';
+
+  const numStr = format === 'padded' ? String(nextVal).padStart(3, '0') : String(nextVal);
+  if (prefix) {
+    return `${prefix}${sep}${numStr}`;
+  }
+  return numStr;
 };
 
 export const getNextBarcode = async (req, res) => {
@@ -206,7 +222,14 @@ export const createProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body };
+    if (updateData.units !== undefined && updateData.current_stock === undefined) {
+      updateData.current_stock = Math.max(0, parseInt(updateData.units) || 0);
+    }
+    if (updateData.current_stock !== undefined && updateData.piece_rate !== undefined) {
+      updateData.purchase_price = (parseInt(updateData.current_stock) || 0) * (parseFloat(updateData.piece_rate) || 0);
+    }
+    const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
 
     await ActivityLog.create({
@@ -277,6 +300,7 @@ export const saveProductDetail = async (req, res) => {
       });
     }
 
+    const isEdit = Boolean(req.body.is_edit || req.body.editing_product_id);
     let itemsToProcess = [];
     if (Array.isArray(productsList)) {
       itemsToProcess = productsList;
@@ -362,11 +386,12 @@ export const saveProductDetail = async (req, res) => {
         }
       }
 
-      const units = Math.max(0, parseInt(item.units || item.current_stock || 1));
+      const itemIsEdit = isEdit || Boolean(item.is_edit);
+      const units = Math.max(0, parseInt(item.units !== undefined ? item.units : (item.current_stock !== undefined ? item.current_stock : 1)));
       const pieceRate = Math.max(0, parseFloat(item.piece_rate || 0));
       let purchasePrice = parseFloat(item.purchase_price || 0);
-      if (purchasePrice <= 0) {
-        purchasePrice = units > 0 && pieceRate > 0 ? units * pieceRate : pieceRate;
+      if (purchasePrice <= 0 || itemIsEdit) {
+        purchasePrice = units > 0 && pieceRate > 0 ? Math.round(units * pieceRate * 100) / 100 : (purchasePrice > 0 ? purchasePrice : pieceRate);
       }
       batchPurchaseTotal += purchasePrice;
 
@@ -382,12 +407,15 @@ export const saveProductDetail = async (req, res) => {
       const gst = parseFloat(item.gst !== undefined && item.gst !== '' ? item.gst : (item.gst_percent !== undefined && item.gst_percent !== '' ? item.gst_percent : (prod_gst !== undefined && prod_gst !== '' ? prod_gst : 0)));
       const barcode = item.barcode && String(item.barcode).trim() ? String(item.barcode).trim() : await getNextSequentialBarcode();
 
-      // Check if product already exists for this supplier
+      // Check if product already exists for this supplier or editing
       let existingProd = null;
-      if (item.product_id) {
+      if (req.body.editing_product_id) {
+        existingProd = await Product.findById(req.body.editing_product_id);
+      }
+      if (!existingProd && item.product_id) {
         existingProd = await Product.findById(item.product_id);
       }
-      if (!existingProd) {
+      if (!existingProd && !itemIsEdit) {
         existingProd = await Product.findOne({
           $or: [
             { supplier_id: supplier.legacyId, name: { $regex: new RegExp(`^${pName}$`, 'i') } },
@@ -398,26 +426,58 @@ export const saveProductDetail = async (req, res) => {
 
       if (existingProd) {
         const prevStock = existingProd.current_stock || 0;
-        const newStock = prevStock + units;
+        let newStock;
+        if (itemIsEdit) {
+          // Edit replaces current stock directly (e.g. piece count = 2)
+          newStock = units;
+          existingProd.current_stock = newStock;
+          existingProd.total_purchased_qty = (existingProd.total_sold_qty || 0) + units;
+        } else {
+          // Restock adds to existing stock
+          newStock = prevStock + units;
+          existingProd.current_stock = newStock;
+          existingProd.total_purchased_qty = (existingProd.total_purchased_qty || 0) + units;
+        }
 
         existingProd.name = pName;
-        existingProd.category_id = category.legacyId || 1;
-        existingProd.category_name = category.name;
+        if (category) {
+          existingProd.category_id = category.legacyId || 1;
+          existingProd.category_name = category.name;
+        }
         if (subcategory) {
           existingProd.subcategory_id = subcategory.legacyId || 1;
           existingProd.subcategory_name = subcategory.name;
+        }
+        if (supplier) {
+          existingProd.supplier_id = supplier.legacyId || supplier._id;
+          existingProd.supplier_name = supplier.name;
         }
         existingProd.piece_rate = pieceRate;
         existingProd.purchase_price = purchasePrice;
         existingProd.margin_percentage = margin;
         existingProd.selling_price = sellingPrice;
         existingProd.gst_percent = gst;
-        existingProd.current_stock = newStock;
-        existingProd.total_purchased_qty = (existingProd.total_purchased_qty || 0) + units;
+        if (barcode) {
+          existingProd.barcode = barcode;
+        }
         existingProd.status = newStock > 0 ? 'active' : 'out_of_stock';
         await existingProd.save();
 
-        if (units > 0) {
+        if (itemIsEdit) {
+          await InventoryTransaction.create({
+            product_id: existingProd.legacyId || existingProd._id,
+            product_name: existingProd.name,
+            transaction_type: 'adjustment',
+            quantity: newStock - prevStock,
+            unit_price: pieceRate,
+            previous_stock: prevStock,
+            new_stock: newStock,
+            reference_type: 'edit',
+            reference_no: `EDIT-${existingProd.sku || existingProd._id}`,
+            notes: `Product stock updated directly to ${units} units (Total purchase: ₹${purchasePrice})`,
+            created_by: req.user ? req.user.legacyId || 1 : 1,
+          });
+        } else if (units > 0) {
           await InventoryTransaction.create({
             product_id: existingProd.legacyId || existingProd._id,
             product_name: existingProd.name,
