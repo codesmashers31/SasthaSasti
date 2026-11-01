@@ -39,6 +39,8 @@ export default function ProductList() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showSupplierSheetModal, setShowSupplierSheetModal] = useState(false);
   const [selectedSupplierForSheet, setSelectedSupplierForSheet] = useState(null);
+  const [sheetSearch, setSheetSearch] = useState('');
+  const [sheetStatusFilter, setSheetStatusFilter] = useState('');
 
   // Supplier Combobox State in Product Modal
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
@@ -118,7 +120,7 @@ export default function ProductList() {
       }
     }
 
-    return String(maxNum + 1);
+    return String(maxNum + 1).padStart(3, '0');
   };
 
   // Multi-Product Entry Form State (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod)
@@ -127,20 +129,20 @@ export default function ProductList() {
     name: '',
     category: '',
     subcategory: '',
-    units: 5,
-    piece_rate: 1500,
-    purchase_price: 7500,
+    units: '',
+    piece_rate: '',
+    purchase_price: '',
     margin_percentage: 60.0,
-    selling_price: 2400,
+    selling_price: '',
     gst: 0,
-    barcode: customBarcode !== undefined ? customBarcode : '1',
+    barcode: customBarcode !== undefined ? customBarcode : '001',
   });
 
   const [productDetailForm, setProductDetailForm] = useState({
     supplier_id: '',
     supply_date: new Date().toISOString().split('T')[0],
-    products: [initialProductRow('1')],
-    total_amount_purchased: 7500,
+    products: [initialProductRow('001')],
+    total_amount_purchased: '',
     payment_methods: {
       Cash: false,
       Card: false,
@@ -155,16 +157,11 @@ export default function ProductList() {
       'Bank Transfer': '',
       Credit: '',
     },
-    total_amount_paid: 0,
-    balance_amount: 7500,
+    total_amount_paid: '',
+    balance_amount: 0,
     gst_percent: 0,
     tax_inclusive: 'Yes',
-    offer_available: 'No',
-    offer_type: '%',
-    offer_amount: '',
-    offer_start: '',
-    offer_end: '',
-    status: 'active',
+    notes: '',
   });
 
   // Supplier Full & Quick Modals State
@@ -405,13 +402,12 @@ export default function ProductList() {
     } catch {}
 
     const initialRow = initialProductRow(nextBc);
-    const initTotal = initialRow.purchase_price;
 
     setProductDetailForm({
       supplier_id: forSupplierId || (suppliers[0]?._id || suppliers[0]?.legacyId || ''),
       supply_date: new Date().toISOString().split('T')[0],
       products: [initialRow],
-      total_amount_purchased: initTotal,
+      total_amount_purchased: '',
       payment_methods: {
         Cash: false,
         Card: false,
@@ -426,16 +422,11 @@ export default function ProductList() {
         'Bank Transfer': '',
         Credit: '',
       },
-      total_amount_paid: 0,
-      balance_amount: initTotal,
+      total_amount_paid: '',
+      balance_amount: 0,
       gst_percent: 0,
       tax_inclusive: 'Yes',
-      offer_available: 'No',
-      offer_type: '%',
-      offer_amount: '',
-      offer_start: '',
-      offer_end: '',
-      status: 'active',
+      notes: '',
     });
     setSupplierSearchTerm('');
     setSupplierComboboxOpen(false);
@@ -517,24 +508,33 @@ export default function ProductList() {
     const row = { ...updated[index], [field]: value };
 
     if (field === 'units' || field === 'piece_rate') {
-      const u = Math.max(0, parseFloat(field === 'units' ? value : row.units) || 0);
-      const pr = Math.max(0, parseFloat(field === 'piece_rate' ? value : row.piece_rate) || 0);
-      row.purchase_price = Math.round(u * pr * 100) / 100;
+      const uStr = field === 'units' ? value : row.units;
+      const prStr = field === 'piece_rate' ? value : row.piece_rate;
+      const u = parseFloat(uStr);
+      const pr = parseFloat(prStr);
+
+      if (!isNaN(u) && !isNaN(pr) && u >= 0 && pr >= 0) {
+        row.purchase_price = Math.round(u * pr * 100) / 100;
+      } else {
+        row.purchase_price = '';
+      }
 
       const margin = parseFloat(row.margin_percentage) || 60;
-      if (pr > 0) {
+      if (!isNaN(pr) && pr > 0) {
         row.selling_price = Math.round((pr + pr * (margin / 100)) * 100) / 100;
+      } else {
+        row.selling_price = '';
       }
     } else if (field === 'margin_percentage') {
       const margin = parseFloat(value) || 0;
-      const pr = parseFloat(row.piece_rate) || 0;
-      if (pr > 0) {
+      const pr = parseFloat(row.piece_rate);
+      if (!isNaN(pr) && pr > 0) {
         row.selling_price = Math.round((pr + pr * (margin / 100)) * 100) / 100;
       }
     } else if (field === 'selling_price') {
-      const sp = parseFloat(value) || 0;
-      const pr = parseFloat(row.piece_rate) || 0;
-      if (pr > 0) {
+      const sp = parseFloat(value);
+      const pr = parseFloat(row.piece_rate);
+      if (!isNaN(sp) && !isNaN(pr) && pr > 0) {
         row.margin_percentage = Math.round(((sp - pr) / pr) * 10000) / 100;
       }
     }
@@ -577,8 +577,8 @@ export default function ProductList() {
       products: updatedProducts,
       payment_methods: updatedPaymentMethods,
       payment_amounts: finalAmounts,
-      total_amount_purchased: Math.round(totalPurchased * 100) / 100,
-      total_amount_paid: Math.round(totalPaid * 100) / 100,
+      total_amount_purchased: totalPurchased > 0 ? Math.round(totalPurchased * 100) / 100 : '',
+      total_amount_paid: totalPaid > 0 ? Math.round(totalPaid * 100) / 100 : '',
       balance_amount: Math.round(balance * 100) / 100,
     }));
   };
@@ -1801,7 +1801,31 @@ export default function ProductList() {
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                             {p.category_name || 'General'}
                           </span>
-                          <span className="text-[11px] text-slate-500 block mt-1 font-medium">{p.supplier_name || 'Direct'}</span>
+                          {p.supplier_name ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const matched = suppliers.find(
+                                  (s) =>
+                                    String(s._id) === String(p.supplier_id) ||
+                                    String(s.legacyId) === String(p.supplier_id) ||
+                                    s.name === p.supplier_name
+                                );
+                                if (matched) {
+                                  openSupplierSheet(matched);
+                                } else {
+                                  setActiveSection('suppliers');
+                                }
+                              }}
+                              className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline font-bold block mt-1 text-left cursor-pointer transition-colors"
+                              title="Click to view Supplier sheet & associated products"
+                            >
+                              <i className="fas fa-truck mr-1 text-[10px]"></i>
+                              {p.supplier_name}
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 block mt-1 font-medium">Direct</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-mono">
                           <div className="text-slate-700 text-xs">
@@ -1996,190 +2020,6 @@ export default function ProductList() {
                 <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 whitespace-nowrap">
                   {filteredBarcodeProducts.length} Barcodes
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Barcode Customization & Generator Rules Panel (Matching C:\xampp\htdocs\billing\billingsoftwaregod\app\Views\settings\barcode.php) */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shadow-xs">
-                  <i className="fas fa-sliders-h"></i>
-                </div>
-                <div>
-                  <h5 className="text-sm font-extrabold text-slate-900">Barcode Generation Rules</h5>
-                  <p className="text-[11px] text-slate-500">Customize prefix word, separator, digit count and label size</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>
-                    Active Format:{' '}
-                    <strong className="font-mono">
-                      {barcodePrefix}
-                      {barcodeSeparator === 'none' ? '' : barcodeSeparator}
-                      {'X'.repeat(barcodeDigits)}
-                    </strong>
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Prefix (4 cols) */}
-              <div className="lg:col-span-4 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-800">
-                    Barcode Prefix <span className="text-rose-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400">e.g. SS, SASTHA, BAR</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={barcodePrefix}
-                    onChange={(e) => setBarcodePrefix(e.target.value.toUpperCase())}
-                    className="w-full bg-white border border-slate-300 rounded-xl pl-3 pr-24 py-2 text-xs font-mono font-bold text-slate-900 uppercase tracking-wider outline-none focus:border-emerald-500"
-                  />
-                  <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setBarcodePrefix('SS')}
-                      className="px-1.5 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 cursor-pointer"
-                    >
-                      SS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBarcodePrefix('SASTHA')}
-                      className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
-                    >
-                      SASTHA
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBarcodePrefix('BAR')}
-                      className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
-                    >
-                      BAR
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Separator (3 cols) */}
-              <div className="lg:col-span-3 space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800">Separator</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { label: '-', value: '-' },
-                    { label: '_', value: '_' },
-                    { label: '/', value: '/' },
-                    { label: 'None', value: 'none' },
-                  ].map((sep) => (
-                    <button
-                      key={sep.value}
-                      type="button"
-                      onClick={() => setBarcodeSeparator(sep.value)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
-                        barcodeSeparator === sep.value
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500 shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {sep.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Number Length (3 cols) */}
-              <div className="lg:col-span-3 space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800">Number Length</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[4, 5, 6, 8].map((dig) => (
-                    <button
-                      key={dig}
-                      type="button"
-                      onClick={() => setBarcodeDigits(dig)}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
-                        barcodeDigits === dig
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500 shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {dig}D
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Label Size (2 cols) */}
-              <div className="lg:col-span-2 space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800">Label Size</label>
-                <select
-                  value={barcodeLabelSize}
-                  onChange={(e) => setBarcodeLabelSize(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-xs text-slate-700 outline-none focus:border-emerald-500 cursor-pointer font-medium"
-                >
-                  <option value="50x25">50x25mm</option>
-                  <option value="38x25">38x25mm</option>
-                  <option value="100x50">100x50mm</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Live Sample Barcodes Display Box */}
-            <div className="bg-white border border-emerald-200/70 rounded-xl p-3.5 shadow-xs">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
-                    <i className="fas fa-barcode"></i>
-                  </span>
-                  <span className="text-xs font-bold text-slate-800">Live Sample Barcodes</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setBarcodeSampleKey((prev) => prev + 1)}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
-                  >
-                    <i className="fas fa-sync-alt text-[10px]"></i> Regenerate Samples
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveBarcodeConfiguration}
-                    disabled={savingBarcodeSettings}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {savingBarcodeSettings && <i className="fas fa-spinner fa-spin text-[10px]"></i>}
-                    <span>{savingBarcodeSettings ? 'Saving...' : 'Save Barcode Rules'}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {sampleBarcodes.map((code, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 text-center"
-                  >
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Sample {idx + 1}
-                    </div>
-                    <div
-                      className="flex justify-center items-end h-6 gap-0.5 mb-1.5 overflow-hidden"
-                      dangerouslySetInnerHTML={{ __html: generatePseudoBarcodeBars(code) }}
-                    />
-                    <div className="font-mono text-xs font-black text-slate-900 tracking-wider">
-                      {code}
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -2900,109 +2740,6 @@ export default function ProductList() {
                   </div>
                 </div>
               </div>
-
-              {/* 4. GST & Tax */}
-              <div className="bg-blue-50/30 p-5 rounded-xl border border-blue-100 space-y-3">
-                <h4 className="text-sm font-bold text-slate-800 border-b border-blue-200 pb-2 flex items-center gap-2">
-                  <i className="fas fa-file-invoice-dollar text-blue-500"></i>
-                  <span>4. GST and Tax Information</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      GST Percentage (%) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={productDetailForm.gst_percent}
-                      onChange={(e) => setProductDetailForm({ ...productDetailForm, gst_percent: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Tax Inclusive</label>
-                    <select
-                      value={productDetailForm.tax_inclusive}
-                      onChange={(e) => setProductDetailForm({ ...productDetailForm, tax_inclusive: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500"
-                    >
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* 5. Offers & Discounts */}
-              <div className="bg-fuchsia-50/30 p-5 rounded-xl border border-fuchsia-100 space-y-3">
-                <h4 className="text-sm font-bold text-slate-800 border-b border-fuchsia-200 pb-2 flex items-center gap-2">
-                  <i className="fas fa-gift text-fuchsia-500"></i>
-                  <span>5. Offers and Discounts</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Offer Available</label>
-                    <select
-                      value={productDetailForm.offer_available}
-                      onChange={(e) => setProductDetailForm({ ...productDetailForm, offer_available: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-fuchsia-500"
-                    >
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                    </select>
-                  </div>
-
-                  {productDetailForm.offer_available === 'Yes' && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Offer Type</label>
-                        <select
-                          value={productDetailForm.offer_type}
-                          onChange={(e) => setProductDetailForm({ ...productDetailForm, offer_type: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none"
-                        >
-                          <option value="%">Percentage (%)</option>
-                          <option value="₹">Fixed Amount (₹)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Offer Amount</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={productDetailForm.offer_amount}
-                          onChange={(e) => setProductDetailForm({ ...productDetailForm, offer_amount: e.target.value })}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none font-mono"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* 7. Additional Information */}
-              <div className="bg-rose-50/30 p-5 rounded-xl border border-rose-100">
-                <h4 className="text-sm font-bold text-slate-800 border-b border-rose-200 pb-2 mb-4 flex items-center gap-2">
-                  <i className="fas fa-info-circle text-rose-500"></i>
-                  <span>7. Additional Information</span>
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Product Status</label>
-                    <select
-                      value={productDetailForm.status}
-                      onChange={(e) => setProductDetailForm({ ...productDetailForm, status: e.target.value })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-rose-500"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
             </form>
 
             {/* Modal Footer */}
@@ -3475,90 +3212,354 @@ export default function ProductList() {
       {/* ========================================================================= */}
       {/* SUPPLIER DETAILED PRODUCTS SHEET MODAL (Full Screen / Drag-to-scroll) */}
       {/* ========================================================================= */}
-      {showSupplierSheetModal && selectedSupplierForSheet && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xs overflow-hidden p-2 sm:p-4 flex items-center justify-center">
-          <div className="bg-white rounded-2xl w-full h-[95vh] max-w-[98vw] shadow-2xl relative animate-in fade-in flex flex-col overflow-hidden border border-slate-200">
-            {/* Header */}
-            <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-white shrink-0 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                  <i className="fas fa-warehouse"></i>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-extrabold text-slate-900">{selectedSupplierForSheet.name}</h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      {selectedSupplierForSheet.supplier_code || 'SUP-001'}
-                    </span>
+      {showSupplierSheetModal && selectedSupplierForSheet && (() => {
+        const suppProds = products.filter(
+          (p) =>
+            String(p.supplier_id) === String(selectedSupplierForSheet.legacyId) ||
+            String(p.supplier_id) === String(selectedSupplierForSheet._id) ||
+            p.supplier_name === selectedSupplierForSheet.name
+        );
+
+        // Header overarching calculations
+        const totalItemsSold = suppProds.reduce((sum, p) => sum + (parseInt(p.total_sold_qty) || 0), 0);
+        const totalStockRemaining = suppProds.reduce((sum, p) => sum + (parseInt(p.current_stock) || 0), 0);
+        const totalInvestedInvert = suppProds.reduce((sum, p) => {
+          const bought = parseInt(p.total_purchased_qty || (parseInt(p.current_stock) || 0) + (parseInt(p.total_sold_qty) || 0)) || (parseInt(p.current_stock) || 0);
+          const pr = parseFloat(p.piece_rate || p.purchase_price) || 0;
+          return sum + (bought * pr);
+        }, 0);
+        const totalSalesRevenue = suppProds.reduce((sum, p) => {
+          const s = parseInt(p.total_sold_qty) || 0;
+          const sp = parseFloat(p.selling_price) || 0;
+          return sum + (p.total_sales_revenue && p.total_sales_revenue > 0 ? parseFloat(p.total_sales_revenue) : s * sp);
+        }, 0);
+
+        // Filtered products for table
+        const searchLow = (sheetSearch || '').toLowerCase().trim();
+        const filteredProds = suppProds.filter((p) => {
+          const pName = (p.name || '').toLowerCase();
+          const pSku = (p.sku || p.code || '').toLowerCase();
+          const pBc = (p.barcode || '').toLowerCase();
+          const pCat = (p.category_name || '').toLowerCase();
+
+          if (searchLow && !pName.includes(searchLow) && !pSku.includes(searchLow) && !pBc.includes(searchLow) && !pCat.includes(searchLow)) {
+            return false;
+          }
+
+          const sold = parseInt(p.total_sold_qty) || 0;
+          const stock = parseInt(p.current_stock) || 0;
+          let saleStatus = 'in_stock';
+          if (sold > 0 && stock === 0) saleStatus = 'sold_out';
+          else if (sold > 0 && stock > 0) saleStatus = 'partially_sold';
+          else if (sold === 0 && stock > 0) saleStatus = 'in_stock';
+          else if (sold === 0 && stock === 0) saleStatus = 'out_of_stock';
+
+          if (sheetStatusFilter && saleStatus !== sheetStatusFilter) {
+            return false;
+          }
+
+          return true;
+        });
+
+        const filteredSoldUnits = filteredProds.reduce((sum, p) => sum + (parseInt(p.total_sold_qty) || 0), 0);
+        const filteredStockUnits = filteredProds.reduce((sum, p) => sum + (parseInt(p.current_stock) || 0), 0);
+        const filteredInvert = filteredProds.reduce((sum, p) => {
+          const bought = parseInt(p.total_purchased_qty || (parseInt(p.current_stock) || 0) + (parseInt(p.total_sold_qty) || 0)) || (parseInt(p.current_stock) || 0);
+          const pr = parseFloat(p.piece_rate || p.purchase_price) || 0;
+          return sum + (bought * pr);
+        }, 0);
+        const filteredRevenue = filteredProds.reduce((sum, p) => {
+          const s = parseInt(p.total_sold_qty) || 0;
+          const sp = parseFloat(p.selling_price) || 0;
+          return sum + (p.total_sales_revenue && p.total_sales_revenue > 0 ? parseFloat(p.total_sales_revenue) : s * sp);
+        }, 0);
+
+        return (
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-xs overflow-hidden p-2 sm:p-4 flex items-center justify-center">
+            <div className="bg-white rounded-2xl w-full h-[96vh] max-w-[98vw] shadow-2xl relative animate-in fade-in flex flex-col overflow-hidden border border-slate-200">
+              {/* Sticky Header: Supplier Identity & Single-Line Compact KPI Badges */}
+              <div className="px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-white shrink-0 z-20 shadow-xs">
+                {/* Supplier Profile */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                    <i className="fas fa-warehouse"></i>
                   </div>
-                  <p className="text-xs text-slate-400">{selectedSupplierForSheet.mobile || '—'} • {selectedSupplierForSheet.city || 'Tamil Nadu'}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-extrabold text-slate-900 truncate max-w-xs">{selectedSupplierForSheet.name}</h3>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                        {selectedSupplierForSheet.supplier_code || 'SUP-001'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate max-w-md">
+                      {selectedSupplierForSheet.mobile || '—'} • {selectedSupplierForSheet.city || 'Tamil Nadu'} • {selectedSupplierForSheet.gst_number || selectedSupplierForSheet.gstin ? `GST: ${selectedSupplierForSheet.gst_number || selectedSupplierForSheet.gstin}` : 'GST: N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 5 Compact KPI Badges (Exact matching C:\xampp\htdocs\billing\billingsoftwaregod) */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center gap-2 shadow-2xs">
+                    <i className="fas fa-cubes text-indigo-600 text-xs"></i>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Products</span>
+                      <span className="text-xs font-black text-indigo-900 font-mono leading-none">{suppProds.length}</span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-2 shadow-2xs">
+                    <i className="fas fa-shopping-bag text-emerald-600 text-xs"></i>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Sold</span>
+                      <span className="text-xs font-black text-emerald-900 font-mono leading-none">{totalItemsSold} Units</span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-100 flex items-center gap-2 shadow-2xs">
+                    <i className="fas fa-layer-group text-amber-600 text-xs"></i>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">In Stock</span>
+                      <span className="text-xs font-black text-amber-900 font-mono leading-none">{totalStockRemaining} Units</span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 shadow-2xs">
+                    <i className="fas fa-coins text-amber-600 text-xs"></i>
+                    <div>
+                      <span className="text-[9px] text-amber-700/80 font-bold uppercase block leading-none">Total Invested (Invert)</span>
+                      <span className="text-xs font-black text-amber-950 font-mono leading-none">
+                        ₹{totalInvestedInvert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-100 flex items-center gap-2 shadow-2xs">
+                    <i className="fas fa-receipt text-purple-600 text-xs"></i>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Sales Revenue</span>
+                      <span className="text-xs font-black text-purple-900 font-mono leading-none">
+                        ₹{totalSalesRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Header Action Controls */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <i className="fas fa-print"></i> Print Sheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSupplierSheetModal(false)}
+                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <i className="fas fa-times text-base"></i>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <i className="fas fa-print"></i> Print
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSupplierSheetModal(false)}
-                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center cursor-pointer"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
+              {/* Filter Sub-bar */}
+              <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+                  <div className="relative flex-1 max-w-xs">
+                    <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input
+                      type="text"
+                      value={sheetSearch}
+                      onChange={(e) => setSheetSearch(e.target.value)}
+                      placeholder="Search product name, SKU, barcode..."
+                      className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+                  <select
+                    value={sheetStatusFilter}
+                    onChange={(e) => setSheetStatusFilter(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 font-medium"
+                  >
+                    <option value="">All Product Statuses</option>
+                    <option value="in_stock">In Stock</option>
+                    <option value="partially_sold">Partially Sold</option>
+                    <option value="sold_out">Sold Out</option>
+                  </select>
+                </div>
+                <div className="text-xs font-bold text-slate-500">
+                  Showing {filteredProds.length} of {suppProds.length} Products
+                </div>
               </div>
-            </div>
 
-            {/* Sheet Table */}
-            <div className="overflow-auto flex-1 p-4">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-indigo-50 text-indigo-900 uppercase text-[10px] font-extrabold border-b border-indigo-200">
-                  <tr>
-                    <th className="py-3 px-4">Product Name & Barcode</th>
-                    <th className="py-3 px-4">Category</th>
-                    <th className="py-3 px-4">Piece Rate (₹)</th>
-                    <th className="py-3 px-4">Selling Price (₹)</th>
-                    <th className="py-3 px-4 text-center">Current Stock</th>
-                    <th className="py-3 px-4 text-right">Total Invested (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {products
-                    .filter(
-                      (p) =>
-                        String(p.supplier_id) === String(selectedSupplierForSheet.legacyId) ||
-                        String(p.supplier_id) === String(selectedSupplierForSheet._id) ||
-                        p.supplier_name === selectedSupplierForSheet.name
-                    )
-                    .map((p) => (
-                      <tr key={p._id || p.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4">
-                          <strong className="text-slate-900 block font-bold">{p.name}</strong>
-                          <span className="font-mono text-[10px] text-slate-400">{p.sku || p.barcode}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
-                            {p.category_name || 'General'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-mono">₹{parseFloat(p.piece_rate || p.purchase_price || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-emerald-700">₹{parseFloat(p.selling_price || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-center font-mono font-bold">{p.current_stock || 0}</td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-indigo-900">
-                          ₹{((parseFloat(p.piece_rate || p.purchase_price) || 0) * (p.current_stock || 0)).toFixed(2)}
+              {/* Printable & Draggable Table Area */}
+              <div className="flex-1 overflow-x-auto overflow-y-auto p-4 bg-slate-50/20">
+                <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                  <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-black border-b border-slate-200 tracking-wider sticky top-0 z-10 shadow-2xs">
+                    <tr>
+                      <th className="py-3 px-3 text-center">#</th>
+                      <th className="py-3 px-4 min-w-[200px]">Product & SKU</th>
+                      <th className="py-3 px-3 text-center min-w-[120px]">
+                        <i className="fas fa-barcode mr-1 text-slate-500"></i>Barcode
+                      </th>
+                      <th className="py-3 px-3 min-w-[110px]">Category</th>
+                      <th className="py-3 px-3 text-right min-w-[110px]">Piece Rate</th>
+                      <th className="py-3 px-2 text-center min-w-[80px]">Margin %</th>
+                      <th className="py-3 px-3 text-right min-w-[110px]">Selling Price</th>
+                      <th className="py-3 px-2 text-center min-w-[80px]">Sold</th>
+                      <th className="py-3 px-2 text-center min-w-[80px]">In Stock</th>
+                      <th className="py-3 px-3 text-center min-w-[110px]">Sales Status</th>
+                      <th className="py-3 px-3 text-right min-w-[130px]">Total Invested (Invert)</th>
+                      <th className="py-3 px-3 text-right min-w-[130px]">Total Sold Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredProds.length === 0 ? (
+                      <tr>
+                        <td colSpan="12" className="py-12 text-center text-slate-400">
+                          <i className="fas fa-boxes text-3xl mb-3 block text-slate-300"></i>
+                          <p className="font-bold text-slate-600 text-sm">No products found</p>
+                          <p className="text-xs mt-1 text-slate-400">No products match your filter criteria or none added yet.</p>
                         </td>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredProds.map((p, index) => {
+                        const sold = parseInt(p.total_sold_qty) || 0;
+                        const stock = parseInt(p.current_stock) || 0;
+                        const bought = parseInt(p.total_purchased_qty || stock + sold) || stock;
+                        const pieceRate = parseFloat(p.piece_rate || p.purchase_price) || 0;
+                        const margin = parseFloat(p.margin_percentage) || 60;
+                        const sellingPrice = parseFloat(p.selling_price) || 0;
+                        const invert = bought * pieceRate;
+                        const productSalesVal = sold * sellingPrice;
+
+                        let statusBadge = (
+                          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                            <i className="fas fa-box mr-1"></i>In Stock
+                          </span>
+                        );
+                        if (sold > 0 && stock === 0) {
+                          statusBadge = (
+                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
+                              <i className="fas fa-check-double mr-1"></i>Sold Out
+                            </span>
+                          );
+                        } else if (sold > 0 && stock > 0) {
+                          statusBadge = (
+                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              <i className="fas fa-chart-pie mr-1"></i>Partially Sold
+                            </span>
+                          );
+                        } else if (sold === 0 && stock === 0) {
+                          statusBadge = (
+                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+                              Out of Stock
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <tr key={p._id || p.id} className="hover:bg-indigo-50/40 transition-colors text-xs border-b border-slate-100">
+                            <td className="py-3 px-3 text-slate-400 font-mono text-center font-bold">{index + 1}</td>
+                            <td className="py-3 px-4 font-semibold text-slate-800">
+                              <div className="font-bold text-slate-900 leading-snug">{p.name}</div>
+                              <div className="text-[10px] text-slate-500 font-mono">
+                                <span className="text-slate-400">SKU:</span> {p.sku || p.code || 'N/A'}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
+                                <i className="fas fa-barcode text-slate-500"></i> {p.barcode || '—'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {p.category_name || 'General'}
+                              </span>
+                              {p.subcategory_name && (
+                                <div className="text-[9px] text-slate-400 font-medium mt-0.5">{p.subcategory_name}</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-slate-800 text-right whitespace-nowrap">
+                              ₹{pieceRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-2 font-mono text-center font-bold text-indigo-700 bg-indigo-50/50 whitespace-nowrap">
+                              {margin}%
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-emerald-700 text-right whitespace-nowrap">
+                              ₹{sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                              <span className={`inline-block font-mono font-extrabold px-2.5 py-0.5 rounded-lg text-xs ${sold > 0 ? 'bg-emerald-100 text-emerald-800' : 'text-slate-400'}`}>
+                                {sold}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                              <span className={`inline-block font-mono font-extrabold px-2.5 py-0.5 rounded-lg text-xs ${stock > 0 ? 'bg-amber-100 text-amber-900' : 'bg-rose-100 text-rose-800'}`}>
+                                {stock}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center whitespace-nowrap">{statusBadge}</td>
+                            <td className="py-3 px-3 font-mono font-black text-amber-900 text-right whitespace-nowrap">
+                              ₹{invert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-extrabold text-slate-900 text-right whitespace-nowrap">
+                              ₹{productSalesVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold sticky bottom-0 z-10 shadow-xs h-12">
+                    <tr>
+                      <td colSpan="7" className="py-3 px-4 font-bold text-slate-700 uppercase tracking-wider text-right text-xs">
+                        Sheet Summary:
+                      </td>
+                      <td className="py-3 px-2 text-center font-mono font-black text-emerald-800 text-xs bg-emerald-50 whitespace-nowrap">
+                        {filteredSoldUnits} Sold
+                      </td>
+                      <td className="py-3 px-2 text-center font-mono font-black text-amber-900 text-xs bg-amber-50 whitespace-nowrap">
+                        {filteredStockUnits} In Stock
+                      </td>
+                      <td className="py-3 px-3 text-center text-xs text-slate-400">—</td>
+                      <td className="py-3 px-3 text-right font-mono font-black text-amber-900 text-xs bg-amber-50 whitespace-nowrap">
+                        ₹{filteredInvert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-black text-indigo-900 text-xs bg-indigo-50 whitespace-nowrap">
+                        ₹{filteredRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Sticky Footer */}
+              <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 z-20">
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                  <i className="fas fa-hand-paper text-indigo-500"></i>
+                  <span>Supplier summary & stock investment tracking. Full sheet matches billingsoftwaregod.</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowSupplierSheetModal(false)}
+                    className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSupplierSheetModal(false);
+                      openProductModal(selectedSupplierForSheet._id || selectedSupplierForSheet.legacyId);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <i className="fas fa-plus"></i> Add Product For This Supplier
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {/* ========================================================================= */}
       {/* QUICK ADD CATEGORY MODAL (Matches C:\xampp\htdocs\billing\billingsoftwaregod) */}
       {/* ========================================================================= */}

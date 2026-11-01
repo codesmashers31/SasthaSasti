@@ -461,61 +461,105 @@ export default function PosTerminal() {
     }
   };
 
-  // Print Thermal 80mm
+  // Print Thermal 80mm (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod\app\Views\billing\print-thermal.php)
   const printThermalReceipt = () => {
     if (!completedInvoice) return;
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (!printWindow) return alert('Please allow popups to print receipt.');
 
     const dateStr = new Date(completedInvoice.created_at || Date.now()).toLocaleString('en-IN');
-    const itemsHtml = (completedInvoice.items || []).map((it) => `
-      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px;">
-        <span style="font-weight:bold;">${it.name || it.product_name} x ${it.quantity}</span>
-        <span>₹${parseFloat(it.total || (it.quantity * it.unit_price)).toFixed(2)}</span>
-      </div>
+    const itemsTableRows = (completedInvoice.items || []).map((it) => `
+      <tr>
+        <td style="padding: 3px 0;">${it.name || it.product_name}</td>
+        <td style="padding: 3px 0; text-align: center;">${it.quantity}</td>
+        <td style="padding: 3px 0; text-align: right;">${parseFloat(it.unit_price).toFixed(0)}</td>
+        <td style="padding: 3px 0; text-align: right; font-weight: bold;">${parseFloat(it.total || (it.quantity * it.unit_price)).toFixed(2)}</td>
+      </tr>
     `).join('');
+
+    const subtotal = parseFloat(completedInvoice.subtotal || 0).toFixed(2);
+    const discount = parseFloat(completedInvoice.discount_amount || 0).toFixed(2);
+    const tax = parseFloat(completedInvoice.tax_amount || 0).toFixed(2);
+    const grandTotal = parseFloat(completedInvoice.grand_total || 0).toFixed(2);
+    const paidAmount = parseFloat(completedInvoice.paid_amount || completedInvoice.grand_total || 0).toFixed(2);
+    const payMethod = (completedInvoice.payment_method || 'CASH').toUpperCase();
+    const sMode = (completedInvoice.sales_mode || salesMode || 'OFFLINE').toUpperCase();
+    const roundOff = (parseFloat(grandTotal) - (parseFloat(subtotal) - parseFloat(discount) + parseFloat(tax))).toFixed(2);
 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Receipt ${completedInvoice.invoice_no}</title>
+          <title>Thermal Receipt ${completedInvoice.invoice_no}</title>
           <style>
-            body { font-family: monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; color: #000; }
+            @page { size: 80mm auto; margin: 0; }
+            body { font-family: monospace, Courier, monospace; font-size: 11px; line-height: 1.25; width: 72mm; margin: 0 auto; padding: 8px; color: #000; background: #fff; }
             .text-center { text-align: center; }
-            .divider { border-top: 1px dashed #000; margin: 8px 0; }
-            .bold { font-weight: bold; }
+            .divider-dashed { border-top: 1px dashed #000; margin: 6px 0; }
+            .divider-solid { border-top: 2px solid #000; margin: 6px 0; }
             .flex-between { display: flex; justify-content: space-between; }
-            @media print { body { width: 100%; margin: 0; padding: 0; } }
+            .bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 10px; }
+            th { border-bottom: 1px solid #000; padding: 2px 0; }
+            @media print { body { width: 100%; margin: 0; padding: 4px; } }
           </style>
         </head>
         <body>
-          <div class="text-center">
-            <h2 style="margin:0; font-size:16px;">${(storeSettings.company_name || 'SASTHA SASTI ENTERPRISES').toUpperCase()}</h2>
-            ${storeSettings.company_address ? `<p style="margin:2px 0; font-size:10px;">${storeSettings.company_address}</p>` : ''}
-            ${storeSettings.company_gstin ? `<p style="margin:2px 0; font-size:10px;">GSTIN: ${storeSettings.company_gstin}</p>` : ''}
-            ${storeSettings.company_phone ? `<p style="margin:2px 0; font-size:10px;">Ph: ${storeSettings.company_phone}</p>` : ''}
+          <div class="text-center" style="padding-bottom: 6px; border-bottom: 1px dashed #000;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+              ${(storeSettings.company_name || 'SASTHA SASTI ENTERPRISES').toUpperCase()}
+            </h2>
+            ${storeSettings.company_address ? `<p style="margin: 2px 0; font-size: 10px;">${storeSettings.company_address}</p>` : ''}
+            ${storeSettings.company_phone ? `<p style="margin: 2px 0; font-size: 10px;">Ph: ${storeSettings.company_phone}</p>` : ''}
+            ${storeSettings.company_gstin ? `<p style="margin: 2px 0; font-size: 10px;">GSTIN: ${storeSettings.company_gstin}</p>` : ''}
           </div>
-          <div class="divider"></div>
-          <div class="flex-between"><span>Inv: <b>${completedInvoice.invoice_no}</b></span><span>${dateStr}</span></div>
-          <div>Customer: <b>${completedInvoice.customer_name || 'Anonymous User'}</b></div>
-          <div>Mobile: ${completedInvoice.customer_mobile || '—'}</div>
-          <div>Billed by: ${completedInvoice.created_by_name || 'Anonymous User'}</div>
-          <div class="divider"></div>
-          ${itemsHtml}
-          <div class="divider"></div>
-          <div class="flex-between"><span>Subtotal:</span><span>₹${parseFloat(completedInvoice.subtotal).toFixed(2)}</span></div>
-          <div class="flex-between"><span>Discount:</span><span>-₹${parseFloat(completedInvoice.discount_amount || 0).toFixed(2)}</span></div>
-          <div class="flex-between"><span>GST Tax:</span><span>₹${parseFloat(completedInvoice.tax_amount || 0).toFixed(2)}</span></div>
-          <div class="divider"></div>
-          <div class="flex-between bold" style="font-size:15px;"><span>GRAND TOTAL:</span><span>₹${parseFloat(completedInvoice.grand_total).toFixed(2)}</span></div>
-          <div class="flex-between"><span>Amount Paid:</span><span>₹${parseFloat(completedInvoice.paid_amount || completedInvoice.grand_total).toFixed(2)}</span></div>
-          <div class="divider"></div>
-          <div class="text-center" style="font-size:10px; margin-top:10px;">
-            <p>Thank You For Choosing ${storeSettings.company_name || 'Sastha Sasti Enterprises'}!</p>
-            <p>We appreciate your business.</p>
+
+          <div style="padding: 6px 0; border-bottom: 1px dashed #000; font-size: 10px; line-height: 1.4;">
+            <div class="flex-between"><span>Bill No:</span><strong>${completedInvoice.invoice_no}</strong></div>
+            <div class="flex-between"><span>Date/Time:</span><span>${dateStr}</span></div>
+            <div class="flex-between"><span>Customer:</span><span class="bold">${completedInvoice.customer_name || 'Walk-in Retail Customer'}</span></div>
+            <div class="flex-between"><span>Customer Mobile:</span><strong style="letter-spacing: 0.5px;">${completedInvoice.customer_mobile || 'N/A'}</strong></div>
           </div>
+
+          <!-- Items Table -->
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Item</th>
+                <th style="text-align: center; width: 28px;">Qty</th>
+                <th style="text-align: right; width: 44px;">Rate</th>
+                <th style="text-align: right; width: 50px;">Total</th>
+              </tr>
+            </thead>
+            <tbody style="border-bottom: 1px dashed #000;">
+              ${itemsTableRows}
+            </tbody>
+          </table>
+
+          <div style="padding: 4px 0; font-size: 10px; line-height: 1.4;">
+            <div class="flex-between"><span>Subtotal:</span><span>₹${subtotal}</span></div>
+            ${parseFloat(discount) > 0 ? `<div class="flex-between"><span>Discount:</span><span>-₹${discount}</span></div>` : ''}
+            <div class="flex-between"><span>GST Tax (0%):</span><span>₹${tax}</span></div>
+            ${parseFloat(roundOff) !== 0 ? `<div class="flex-between"><span>Round-off:</span><span>${parseFloat(roundOff) >= 0 ? '+' : ''}₹${roundOff}</span></div>` : ''}
+            <div class="flex-between bold" style="font-size: 13px; padding-top: 4px; margin-top: 3px; border-top: 1px dashed #000;">
+              <span>NET TOTAL:</span>
+              <span>₹${grandTotal}</span>
+            </div>
+            <div class="flex-between" style="padding-top: 3px;">
+              <span>Paid (${payMethod} • ${sMode}):</span>
+              <span class="bold">₹${paidAmount}</span>
+            </div>
+          </div>
+
+          <div class="text-center" style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; font-size: 9px;">
+            <p style="margin: 0; font-weight: bold; letter-spacing: 0.5px;">THANK YOU • VISIT AGAIN</p>
+            <p style="margin: 2px 0 0 0; color: #555;">Sacred Idols & Pooja Articles</p>
+          </div>
+
           <script>
-            window.onload = function() { window.print(); window.close(); }
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
           </script>
         </body>
       </html>

@@ -106,7 +106,7 @@ export const getNextSequentialBarcode = async () => {
       }
     }
   }
-  return String(maxNum + 1);
+  return String(maxNum + 1).padStart(3, '0');
 };
 
 export const getNextBarcode = async (req, res) => {
