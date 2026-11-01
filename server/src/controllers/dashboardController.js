@@ -187,7 +187,7 @@ export const getDashboardStats = async (req, res) => {
       }
 
       (inv.items || []).forEach(it => {
-        const pName = it.product_name || 'Sacred Murti';
+        const pName = it.product_name || 'Item';
         if (!productSalesMap[pName]) {
           productSalesMap[pName] = { name: pName, quantity: 0, revenue: 0 };
         }

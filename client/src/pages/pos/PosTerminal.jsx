@@ -14,11 +14,18 @@ export default function PosTerminal() {
   const [cart, setCart] = useState([]);
   const [heldBills, setHeldBills] = useState(() => {
     try {
-      const saved = localStorage.getItem('divya_held_bills');
+      const saved = localStorage.getItem('sastha_held_bills') || localStorage.getItem('divya_held_bills');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
+  });
+
+  const [storeSettings, setStoreSettings] = useState({
+    company_name: 'Sastha Sasti Enterprises',
+    company_gstin: '',
+    company_phone: '',
+    company_address: '',
   });
 
   // State: Customer
@@ -47,6 +54,8 @@ export default function PosTerminal() {
   const [salesMode, setSalesMode] = useState('offline'); // 'offline' or 'online'
   const [payMethodCash, setPayMethodCash] = useState(true);
   const [payAmountCash, setPayAmountCash] = useState('');
+  const [payMethodCard, setPayMethodCard] = useState(false);
+  const [payAmountCard, setPayAmountCard] = useState('');
   const [payMethodUpi, setPayMethodUpi] = useState(false);
   const [payAmountUpi, setPayAmountUpi] = useState('');
   const [showUpiQr, setShowUpiQr] = useState(false);
@@ -116,7 +125,7 @@ export default function PosTerminal() {
   // Save held bills to local storage
   useEffect(() => {
     try {
-      localStorage.setItem('divya_held_bills', JSON.stringify(heldBills));
+      localStorage.setItem('sastha_held_bills', JSON.stringify(heldBills));
     } catch (e) {
       console.error(e);
     }
@@ -141,12 +150,16 @@ export default function PosTerminal() {
   const fetchSettings = async () => {
     try {
       const res = await api.get('/settings');
-      if (res && res.data && res.data.settings) {
-        const map = {};
-        res.data.settings.forEach(s => map[s.key] = s.value);
-        if (map.company_upi_id) setUpiId(map.company_upi_id);
-        if (map.company_name) setCompanyName(map.company_name);
-      }
+      const s = res?.settings || (res?.data && res?.data?.settings) || {};
+      const cName = s.company_name && !s.company_name.toLowerCase().includes('divya') ? s.company_name : 'Sastha Sasti Enterprises';
+      if (s.company_upi_id) setUpiId(s.company_upi_id);
+      if (cName) setCompanyName(cName);
+      setStoreSettings({
+        company_name: cName,
+        company_gstin: s.company_gstin || '',
+        company_phone: s.company_phone || '',
+        company_address: s.company_address || '',
+      });
     } catch {}
   };
 
@@ -254,8 +267,9 @@ export default function PosTerminal() {
 
   // Payments in Modal
   const numCash = payMethodCash ? parseFloat(payAmountCash) || 0 : 0;
+  const numCard = payMethodCard ? parseFloat(payAmountCard) || 0 : 0;
   const numUpi = payMethodUpi ? parseFloat(payAmountUpi) || 0 : 0;
-  const totalAmountPaid = Math.round((numCash + numUpi) * 100) / 100;
+  const totalAmountPaid = Math.round((numCash + numCard + numUpi) * 100) / 100;
   const balanceToPay = Math.max(0, Math.round((grandTotal - totalAmountPaid) * 100) / 100);
 
   // Sync default pay amount when opening modal
@@ -272,11 +286,55 @@ export default function PosTerminal() {
 
     // Default cash amount to grand total
     setPayMethodCash(true);
-    setPayAmountCash(grandTotal.toString());
+    setPayAmountCash(grandTotal.toFixed(2));
+    setPayMethodCard(false);
+    setPayAmountCard('');
     setPayMethodUpi(false);
     setPayAmountUpi('');
     setShowUpiQr(false);
     setIsPaymentModalOpen(true);
+  };
+
+  const togglePosMethod = (method) => {
+    if (method === 'cash') {
+      const willBeChecked = !payMethodCash;
+      setPayMethodCash(willBeChecked);
+      if (willBeChecked) {
+        const otherPaid = (payMethodCard ? parseFloat(payAmountCard) || 0 : 0) + (payMethodUpi ? parseFloat(payAmountUpi) || 0 : 0);
+        const remain = Math.max(0, grandTotal - otherPaid);
+        setPayAmountCash(remain > 0 ? remain.toFixed(2) : (otherPaid === 0 ? grandTotal.toFixed(2) : '0.00'));
+      } else {
+        setPayAmountCash('');
+        if (payMethodCard && !payMethodUpi) setPayAmountCard(grandTotal.toFixed(2));
+        else if (payMethodUpi && !payMethodCard) setPayAmountUpi(grandTotal.toFixed(2));
+      }
+    } else if (method === 'card') {
+      const willBeChecked = !payMethodCard;
+      setPayMethodCard(willBeChecked);
+      if (willBeChecked) {
+        const otherPaid = (payMethodCash ? parseFloat(payAmountCash) || 0 : 0) + (payMethodUpi ? parseFloat(payAmountUpi) || 0 : 0);
+        const remain = Math.max(0, grandTotal - otherPaid);
+        setPayAmountCard(remain > 0 ? remain.toFixed(2) : (otherPaid === 0 ? grandTotal.toFixed(2) : '0.00'));
+      } else {
+        setPayAmountCard('');
+        if (payMethodCash && !payMethodUpi) setPayAmountCash(grandTotal.toFixed(2));
+        else if (payMethodUpi && !payMethodCash) setPayAmountUpi(grandTotal.toFixed(2));
+      }
+    } else if (method === 'upi') {
+      const willBeChecked = !payMethodUpi;
+      setPayMethodUpi(willBeChecked);
+      if (willBeChecked) {
+        setShowUpiQr(true);
+        const otherPaid = (payMethodCash ? parseFloat(payAmountCash) || 0 : 0) + (payMethodCard ? parseFloat(payAmountCard) || 0 : 0);
+        const remain = Math.max(0, grandTotal - otherPaid);
+        setPayAmountUpi(remain > 0 ? remain.toFixed(2) : (otherPaid === 0 ? grandTotal.toFixed(2) : '0.00'));
+      } else {
+        setPayAmountUpi('');
+        setShowUpiQr(false);
+        if (payMethodCash && !payMethodCard) setPayAmountCash(grandTotal.toFixed(2));
+        else if (payMethodCard && !payMethodCash) setPayAmountCard(grandTotal.toFixed(2));
+      }
+    }
   };
 
   // Suspended Held Bills
@@ -358,7 +416,14 @@ export default function PosTerminal() {
   // Checkout Execution
   const processCheckout = async () => {
     try {
-      const primaryMethod = payMethodUpi && !payMethodCash ? 'upi' : payMethodCash && payMethodUpi ? 'split' : 'cash';
+      const checkedCount = (payMethodCash ? 1 : 0) + (payMethodCard ? 1 : 0) + (payMethodUpi ? 1 : 0);
+      const primaryMethod = checkedCount > 1
+        ? 'split'
+        : payMethodUpi
+        ? 'upi'
+        : payMethodCard
+        ? 'card'
+        : 'cash';
 
       const payload = {
         customer_name: customerName.trim() || 'Anonymous User',
@@ -425,10 +490,10 @@ export default function PosTerminal() {
         </head>
         <body>
           <div class="text-center">
-            <h2 style="margin:0; font-size:16px;">SASTHA SASTI ENTERPRISE</h2>
-            <p style="margin:2px 0; font-size:11px;">DIVYA MURTI GOD STATUES & POOJA</p>
-            <p style="margin:2px 0; font-size:10px;">GSTIN: 33AABCG1234H1Z0</p>
-            <p style="margin:2px 0; font-size:10px;">Ph: 9999999999</p>
+            <h2 style="margin:0; font-size:16px;">${(storeSettings.company_name || 'SASTHA SASTI ENTERPRISES').toUpperCase()}</h2>
+            ${storeSettings.company_address ? `<p style="margin:2px 0; font-size:10px;">${storeSettings.company_address}</p>` : ''}
+            ${storeSettings.company_gstin ? `<p style="margin:2px 0; font-size:10px;">GSTIN: ${storeSettings.company_gstin}</p>` : ''}
+            ${storeSettings.company_phone ? `<p style="margin:2px 0; font-size:10px;">Ph: ${storeSettings.company_phone}</p>` : ''}
           </div>
           <div class="divider"></div>
           <div class="flex-between"><span>Inv: <b>${completedInvoice.invoice_no}</b></span><span>${dateStr}</span></div>
@@ -446,8 +511,8 @@ export default function PosTerminal() {
           <div class="flex-between"><span>Amount Paid:</span><span>₹${parseFloat(completedInvoice.paid_amount || completedInvoice.grand_total).toFixed(2)}</span></div>
           <div class="divider"></div>
           <div class="text-center" style="font-size:10px; margin-top:10px;">
-            <p>Thank You For Choosing Divya Murti!</p>
-            <p>Sacred blessings and prosperities.</p>
+            <p>Thank You For Choosing ${storeSettings.company_name || 'Sastha Sasti Enterprises'}!</p>
+            <p>We appreciate your business.</p>
           </div>
           <script>
             window.onload = function() { window.print(); window.close(); }
@@ -1145,23 +1210,18 @@ export default function PosTerminal() {
                 </div>
               </div>
 
-              {/* Payment Methods: Cash and UPI */}
+              {/* Payment Methods: Cash, Card, and UPI */}
               <div>
                 <label className="block font-bold text-slate-700 mb-2">Select Payment Method</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Cash */}
                   <div className="p-3 bg-white border border-slate-200 hover:border-emerald-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
                     <label className="cursor-pointer flex items-center gap-2 select-none w-full">
                       <input
                         type="checkbox"
                         checked={payMethodCash}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setPayMethodCash(checked);
-                          if (!checked) setPayAmountCash('');
-                          else if (!payMethodUpi) setPayAmountCash(grandTotal.toString());
-                        }}
-                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                        onChange={() => togglePosMethod('cash')}
+                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <i className="fas fa-money-bill-wave text-emerald-600"></i> Cash Payment
@@ -1175,7 +1235,33 @@ export default function PosTerminal() {
                         value={payAmountCash}
                         onChange={(e) => setPayAmountCash(e.target.value)}
                         placeholder="Amount (₹)"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 font-mono font-bold text-slate-800"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 font-mono font-bold text-slate-800 animate-in fade-in"
+                      />
+                    )}
+                  </div>
+
+                  {/* Card */}
+                  <div className="p-3 bg-white border border-slate-200 hover:border-blue-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
+                    <label className="cursor-pointer flex items-center gap-2 select-none w-full">
+                      <input
+                        type="checkbox"
+                        checked={payMethodCard}
+                        onChange={() => togglePosMethod('card')}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <i className="fas fa-credit-card text-blue-600"></i> Card / POS
+                      </span>
+                    </label>
+                    {payMethodCard && (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={payAmountCard}
+                        onChange={(e) => setPayAmountCard(e.target.value)}
+                        placeholder="Amount (₹)"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 font-mono font-bold text-slate-800 animate-in fade-in"
                       />
                     )}
                   </div>
@@ -1186,22 +1272,8 @@ export default function PosTerminal() {
                       <input
                         type="checkbox"
                         checked={payMethodUpi}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setPayMethodUpi(checked);
-                          if (checked) {
-                            setShowUpiQr(true);
-                            if (!payMethodCash) setPayAmountUpi(grandTotal.toString());
-                            else {
-                              const remain = Math.max(0, grandTotal - (parseFloat(payAmountCash) || 0));
-                              setPayAmountUpi(remain.toString());
-                            }
-                          } else {
-                            setPayAmountUpi('');
-                            setShowUpiQr(false);
-                          }
-                        }}
-                        className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                        onChange={() => togglePosMethod('upi')}
+                        className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <i className="fas fa-qrcode text-indigo-600"></i> UPI (Scan QR)
@@ -1215,7 +1287,7 @@ export default function PosTerminal() {
                         value={payAmountUpi}
                         onChange={(e) => setPayAmountUpi(e.target.value)}
                         placeholder="Amount (₹)"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 font-mono font-bold text-slate-800"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 font-mono font-bold text-slate-800 animate-in fade-in"
                       />
                     )}
                   </div>
@@ -1487,7 +1559,7 @@ export default function PosTerminal() {
 
               {/* WhatsApp Share Bill */}
               <a
-                href={whatsappShareUrl || `https://wa.me/91${completedInvoice.customer_mobile}?text=${encodeURIComponent(`Dear ${completedInvoice.customer_name}, your Divya Murti invoice ${completedInvoice.invoice_no} for amount ₹${completedInvoice.grand_total} is generated.`)}`}
+                href={whatsappShareUrl || `https://wa.me/91${completedInvoice.customer_mobile}?text=${encodeURIComponent(`Dear ${completedInvoice.customer_name}, your ${storeSettings.company_name || 'Sastha Sasti Enterprises'} invoice ${completedInvoice.invoice_no} for amount ₹${completedInvoice.grand_total} is generated.`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"

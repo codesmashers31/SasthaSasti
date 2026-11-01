@@ -118,7 +118,7 @@ export default function BarcodeSettings() {
                 <label className="block text-xs font-bold text-slate-800">
                   Barcode Prefix / Starting Word <span className="text-rose-500">*</span>
                 </label>
-                <span className="text-[11px] text-slate-400">e.g., SS, DIVYA, BAR</span>
+                <span className="text-[11px] text-slate-400">e.g., SS, SASTHA, BAR</span>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
@@ -142,10 +142,10 @@ export default function BarcodeSettings() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPrefix('DIVYA')}
+                    onClick={() => setPrefix('SASTHA')}
                     className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                   >
-                    DIVYA
+                    SASTHA
                   </button>
                   <button
                     type="button"

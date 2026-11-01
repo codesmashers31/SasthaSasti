@@ -1,13 +1,32 @@
 import Setting from '../models/Setting.js';
 import ActivityLog from '../models/ActivityLog.js';
 
+const DEFAULT_SETTINGS = {
+  company_name: 'Sastha Sasti Enterprises',
+  company_gstin: '',
+  company_phone: '+91 98401 12233',
+  company_address: 'Tamil Nadu, India',
+  default_gst_percent: '12',
+  invoice_prefix: 'SS',
+  printer_type: 'thermal_80mm',
+};
+
 export const getSettings = async (req, res) => {
   try {
     const settings = await Setting.find();
-    const settingsMap = {};
+    const settingsMap = { ...DEFAULT_SETTINGS };
+    
     settings.forEach(s => {
-      settingsMap[s.key] = s.value;
+      // Clean legacy names
+      if (s.key === 'company_name' && s.value && s.value.toLowerCase().includes('divya')) {
+        settingsMap[s.key] = 'Sastha Sasti Enterprises';
+      } else if (s.key === 'invoice_prefix' && s.value === 'DIVYA') {
+        settingsMap[s.key] = 'SS';
+      } else {
+        settingsMap[s.key] = s.value;
+      }
     });
+
     res.json({ success: true, settings: settingsMap, raw: settings });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

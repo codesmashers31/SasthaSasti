@@ -7,6 +7,7 @@ import AccountTransaction from '../models/AccountTransaction.js';
 import Payment from '../models/Payment.js';
 import InventoryTransaction from '../models/InventoryTransaction.js';
 import ActivityLog from '../models/ActivityLog.js';
+import Setting from '../models/Setting.js';
 
 export const checkout = async (req, res) => {
   try {
@@ -59,7 +60,10 @@ export const checkout = async (req, res) => {
 
     // Generate Invoice Number
     const count = await Invoice.countDocuments();
-    const invoiceNo = `DIVYA-${1000 + count + 1}`;
+    const prefixDoc = await Setting.findOne({ key: 'invoice_prefix' });
+    const rawPrefix = prefixDoc?.value?.trim();
+    const prefix = (rawPrefix && rawPrefix !== 'DIVYA') ? rawPrefix : 'SS';
+    const invoiceNo = `${prefix}-${1000 + count + 1}`;
     const today = new Date().toISOString().slice(0, 10);
     const nowTime = new Date().toTimeString().slice(0, 8);
 
@@ -243,8 +247,14 @@ export const checkout = async (req, res) => {
     const cleanPhone = customerDoc.mobile.replace(/\D/g, '');
     let whatsappUrl = null;
     if (cleanPhone && cleanPhone.length >= 10) {
+      const companyDoc = await Setting.findOne({ key: 'company_name' });
+      const rawCompany = companyDoc?.value?.trim();
+      const companyName = (rawCompany && !rawCompany.toLowerCase().includes('divya'))
+        ? rawCompany
+        : 'Sastha Sasti Enterprises';
+
       const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone.slice(-10)}`;
-      const message = `🙏 *Divya Murti - Sacred God Statues*\nThank you for your purchase, *${customerDoc.name}*!\n\n🧾 *Invoice:* ${invoiceNo}\n📅 *Date:* ${today}\n💰 *Total Amount:* ₹${grandTotal.toLocaleString('en-IN')}\n💳 *Paid:* ₹${actualPaid.toLocaleString('en-IN')}\n${balanceAmount > 0 ? `⚠️ *Due Balance:* ₹${balanceAmount.toLocaleString('en-IN')}\n` : ''}\nMay divine blessings be with you and your family! ✨`;
+      const message = `🙏 *${companyName}*\nThank you for your purchase, *${customerDoc.name}*!\n\n🧾 *Invoice:* ${invoiceNo}\n📅 *Date:* ${today}\n💰 *Total Amount:* ₹${grandTotal.toLocaleString('en-IN')}\n💳 *Paid:* ₹${actualPaid.toLocaleString('en-IN')}\n${balanceAmount > 0 ? `⚠️ *Due Balance:* ₹${balanceAmount.toLocaleString('en-IN')}\n` : ''}\nThank you for choosing ${companyName}! ✨`;
       whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
     }
 

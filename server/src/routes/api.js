@@ -123,7 +123,7 @@ router.get('/barcode/settings', protect, barcodeController.getBarcodeSettings);
 router.post('/barcode/settings', protect, barcodeController.saveBarcodeSettings);
 
 // 17. Settings & Audit
-router.get('/settings', protect, settingsController.getSettings);
+router.get('/settings', settingsController.getSettings);
 router.post('/settings', protect, settingsController.updateSettings);
 router.get('/audit', protect, settingsController.getAuditLogs);
 

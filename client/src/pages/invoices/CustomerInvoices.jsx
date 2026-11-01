@@ -35,6 +35,30 @@ export default function CustomerInvoices() {
     due_count: 0,
   });
 
+  const [storeSettings, setStoreSettings] = useState({
+    company_name: 'Sastha Sasti Enterprises',
+    company_gstin: '',
+    company_phone: '',
+    company_address: '',
+  });
+
+  useEffect(() => {
+    api.get('/settings')
+      .then(res => {
+        const s = res?.settings || (res?.data && res?.data?.settings);
+        if (s) {
+          setStoreSettings(prev => ({
+            ...prev,
+            company_name: s.company_name && !s.company_name.toLowerCase().includes('divya') ? s.company_name : 'Sastha Sasti Enterprises',
+            company_gstin: s.company_gstin || '',
+            company_phone: s.company_phone || '',
+            company_address: s.company_address || '',
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     setPage(1);
     fetchInvoices(1, limit);
@@ -224,9 +248,10 @@ export default function CustomerInvoices() {
         </head>
         <body>
           <div class="text-center">
-            <h2 style="margin:0; font-size:16px;">SASTHA SASTI ENTERPRISE</h2>
-            <p style="margin:2px 0; font-size:11px;">DIVYA MURTI GOD STATUES</p>
-            <p style="margin:2px 0; font-size:10px;">GSTIN: 33AABCG1234H1Z0</p>
+            <h2 style="margin:0; font-size:16px;">${(storeSettings.company_name || 'SASTHA SASTI ENTERPRISES').toUpperCase()}</h2>
+            ${storeSettings.company_address ? `<p style="margin:2px 0; font-size:10px;">${storeSettings.company_address}</p>` : ''}
+            ${storeSettings.company_gstin ? `<p style="margin:2px 0; font-size:10px;">GSTIN: ${storeSettings.company_gstin}</p>` : ''}
+            ${storeSettings.company_phone ? `<p style="margin:2px 0; font-size:10px;">Ph: ${storeSettings.company_phone}</p>` : ''}
           </div>
           <div class="divider"></div>
           <div class="flex-between"><span>Inv: <b>${inv.invoice_no}</b></span><span>${dateStr}</span></div>
@@ -244,7 +269,7 @@ export default function CustomerInvoices() {
           <div class="flex-between"><span>Paid Amount:</span><span>₹${parseFloat(inv.paid_amount || inv.grand_total).toFixed(2)}</span></div>
           <div class="divider"></div>
           <div class="text-center" style="font-size:10px; margin-top:10px;">
-            <p>Thank You For Choosing Divya Murti!</p>
+            <p>Thank You For Choosing ${storeSettings.company_name || 'Sastha Sasti Enterprises'}!</p>
           </div>
           <script>window.onload = function() { window.print(); window.close(); }</script>
         </body>
@@ -282,9 +307,10 @@ export default function CustomerInvoices() {
         <body>
           <div class="header">
             <div>
-              <h1 style="color: #b45309; margin: 0; font-size: 22px;">SASTHA SASTI ENTERPRISE</h1>
-              <p style="margin: 3px 0; font-size: 12px; color: #64748b;">Divya Murti God Statues & Pooja Artifacts</p>
-              <p style="margin: 3px 0; font-size: 11px;">GSTIN: 33AABCG1234H1Z0</p>
+              <h1 style="color: #b45309; margin: 0; font-size: 22px;">${(storeSettings.company_name || 'SASTHA SASTI ENTERPRISES').toUpperCase()}</h1>
+              ${storeSettings.company_address ? `<p style="margin: 3px 0; font-size: 12px; color: #64748b;">${storeSettings.company_address}</p>` : ''}
+              ${storeSettings.company_gstin ? `<p style="margin: 3px 0; font-size: 11px;">GSTIN: ${storeSettings.company_gstin}</p>` : ''}
+              ${storeSettings.company_phone ? `<p style="margin: 3px 0; font-size: 11px;">Ph: ${storeSettings.company_phone}</p>` : ''}
             </div>
             <div style="text-align: right;">
               <h2 style="margin: 0; font-size: 18px; color: #0f172a;">TAX INVOICE</h2>
@@ -661,7 +687,7 @@ export default function CustomerInvoices() {
                         {inv.customer_mobile && (
                           <a
                             href={`https://wa.me/91${inv.customer_mobile}?text=${encodeURIComponent(
-                              `Hello ${inv.customer_name}, your Divya Murti invoice ${inv.invoice_no} for amount ₹${inv.grand_total} is ready.`
+                              `Hello ${inv.customer_name}, your ${storeSettings.company_name || 'Sastha Sasti Enterprises'} invoice ${inv.invoice_no} for amount ₹${inv.grand_total} is ready.`
                             )}`}
                             target="_blank"
                             rel="noreferrer"

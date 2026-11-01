@@ -18,7 +18,7 @@ export default function Dashboard() {
   // Target Goal & Period Configuration State (stored in localStorage)
   const getInitialTargetConfig = () => {
     try {
-      const saved = localStorage.getItem('divya_murti_target_config');
+      const saved = localStorage.getItem('sastha_sasti_target_config') || localStorage.getItem('divya_murti_target_config');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     const now = new Date();
@@ -208,7 +208,7 @@ export default function Dashboard() {
     };
     setTargetConfig(config);
     try {
-      localStorage.setItem('divya_murti_target_config', JSON.stringify(config));
+      localStorage.setItem('sastha_sasti_target_config', JSON.stringify(config));
     } catch (e) {}
     setIsTargetModalOpen(false);
     fetchDashboardStats(modalStart, modalEnd, config.targetGoal);

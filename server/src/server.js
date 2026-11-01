@@ -42,7 +42,7 @@ app.use(morgan('dev'));
 app.get(['/', '/health', '/api/health'], (req, res) => {
   res.json({
     status: 'online',
-    app: 'Divya Murti ERP & Sacred POS Server',
+    app: 'Sastha Sasti Enterprises ERP & POS Server',
     time: new Date().toISOString(),
     endpoints: {
       health: '/api/health',
@@ -69,7 +69,7 @@ const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => {
     console.log(`\n======================================================`);
-    console.log(`🚀 Divya Murti Backend running on http://localhost:${PORT}`);
+    console.log(`🚀 Sastha Sasti Enterprises Backend running on http://localhost:${PORT}`);
     console.log(`🗄️  Connected to MongoDB: billing`);
     console.log(`⚡ API Base Endpoint: http://localhost:${PORT}/api`);
     console.log(`======================================================\n`);

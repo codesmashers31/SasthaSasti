@@ -38,10 +38,10 @@ export default function Login() {
               />
             </div>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Sastha Sasti Enterprise / Divya Murti
+              Sastha Sasti Enterprises
             </h2>
             <p className="text-xs text-amber-700 font-semibold uppercase tracking-wider mt-0.5">
-              Enterprise God Statue Management ERP
+              Enterprise Billing & POS Management System
             </p>
           </div>
 

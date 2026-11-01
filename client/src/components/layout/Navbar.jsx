@@ -6,25 +6,25 @@ import api from '../../api/client';
 export default function Navbar({ onToggleMobileMenu }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [companyInfo, setCompanyInfo] = useState({
-    name: 'Sastha Sasti Enterprise / Divya Murti',
-    gstin: '33AABCG1234H1Z0'
-  });
+  const [companyName, setCompanyName] = useState('Sastha Sasti Enterprises');
 
-  useEffect(() => {
-    // Fetch store branding settings if available
+  const loadSettings = () => {
     api.get('/settings')
       .then(res => {
-        if (res.data && res.data.settings) {
-          const map = {};
-          res.data.settings.forEach(s => map[s.key] = s.value);
-          setCompanyInfo({
-            name: map.company_name || 'Sastha Sasti Enterprise / Divya Murti',
-            gstin: map.company_gstin || '33AABCG1234H1Z0'
-          });
+        const s = res?.settings || (res?.data && res?.data?.settings) || {};
+        const cName = s.company_name || (Array.isArray(res?.raw) ? res.raw.find(r => r.key === 'company_name')?.value : null);
+        if (cName && !cName.toLowerCase().includes('divya')) {
+          setCompanyName(cName);
+        } else if (cName) {
+          setCompanyName('Sastha Sasti Enterprises');
         }
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadSettings();
+    window.addEventListener('company_settings_updated', loadSettings);
 
     // Global shortcut [F2] to navigate to POS
     const handleKeyDown = (e) => {
@@ -34,12 +34,15 @@ export default function Navbar({ onToggleMobileMenu }) {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('company_settings_updated', loadSettings);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [navigate]);
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-40 shadow-sm sticky top-0">
-      {/* Left: Mobile Toggle & Breadcrumb / Status */}
+      {/* Left: Mobile Toggle & Store Name */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -51,11 +54,7 @@ export default function Navbar({ onToggleMobileMenu }) {
         </button>
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           <i className="fas fa-store text-amber-600 text-sm"></i>
-          <span className="text-slate-900 font-bold truncate max-w-[180px] sm:max-w-none">{companyInfo.name}</span>
-          <span className="hidden sm:inline">/</span>
-          <span className="hidden sm:inline text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-mono text-[11px] border border-amber-200">
-            GSTIN: {companyInfo.gstin}
-          </span>
+          <span className="text-slate-900 font-bold truncate max-w-[280px] sm:max-w-none text-sm">{companyName}</span>
         </div>
       </div>
 

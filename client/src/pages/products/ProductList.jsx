@@ -499,14 +499,30 @@ export default function ProductList() {
     recalculateBatchTotals(updated, productDetailForm.payment_amounts);
   };
 
-  const recalculateBatchTotals = (updatedProducts, updatedPaymentAmounts) => {
+  const recalculateBatchTotals = (
+    updatedProducts,
+    updatedPaymentAmounts,
+    updatedPaymentMethods = productDetailForm.payment_methods
+  ) => {
     const totalPurchased = updatedProducts.reduce(
       (sum, p) => sum + (parseFloat(p.purchase_price) || 0),
       0
     );
 
-    const totalPaid = Object.values(updatedPaymentAmounts).reduce(
-      (sum, val) => sum + (parseFloat(val) || 0),
+    const checkedMethods = Object.keys(updatedPaymentMethods).filter(
+      (m) => updatedPaymentMethods[m]
+    );
+
+    let finalAmounts = { ...updatedPaymentAmounts };
+
+    // If exactly 1 method is checked, automatically sync its amount to the new totalPurchased!
+    if (checkedMethods.length === 1) {
+      const soleMethod = checkedMethods[0];
+      finalAmounts[soleMethod] = totalPurchased > 0 ? totalPurchased.toFixed(2) : '';
+    }
+
+    const totalPaid = checkedMethods.reduce(
+      (sum, m) => sum + (parseFloat(finalAmounts[m]) || 0),
       0
     );
 
@@ -515,6 +531,8 @@ export default function ProductList() {
     setProductDetailForm((prev) => ({
       ...prev,
       products: updatedProducts,
+      payment_methods: updatedPaymentMethods,
+      payment_amounts: finalAmounts,
       total_amount_purchased: Math.round(totalPurchased * 100) / 100,
       total_amount_paid: Math.round(totalPaid * 100) / 100,
       balance_amount: Math.round(balance * 100) / 100,
@@ -523,24 +541,70 @@ export default function ProductList() {
 
   const handlePaymentCheckboxChange = (method) => {
     const isCurrentlyChecked = productDetailForm.payment_methods[method];
-    const newMethods = { ...productDetailForm.payment_methods, [method]: !isCurrentlyChecked };
+    const willBeChecked = !isCurrentlyChecked;
+    const newMethods = { ...productDetailForm.payment_methods, [method]: willBeChecked };
     const newAmounts = { ...productDetailForm.payment_amounts };
 
-    if (isCurrentlyChecked) {
+    const totalPurchased = productDetailForm.products.reduce(
+      (sum, p) => sum + (parseFloat(p.purchase_price) || 0),
+      0
+    );
+
+    if (willBeChecked) {
+      // Calculate how much was already paid/allocated to other checked methods
+      const otherPaid = Object.keys(newMethods).reduce((sum, m) => {
+        if (m !== method && newMethods[m]) {
+          return sum + (parseFloat(newAmounts[m]) || 0);
+        }
+        return sum;
+      }, 0);
+
+      const remaining = Math.max(0, totalPurchased - otherPaid);
+
+      if (remaining > 0) {
+        newAmounts[method] = remaining.toFixed(2);
+      } else if (otherPaid === 0 && totalPurchased > 0) {
+        newAmounts[method] = totalPurchased.toFixed(2);
+      } else {
+        newAmounts[method] = '0.00';
+      }
+    } else {
+      // Unchecked: clear this method's amount
       newAmounts[method] = '';
+
+      // If exactly 1 method remains checked, transfer the full total purchased amount to it (matching PHP billingsoftwaregod)
+      const remainingChecked = Object.keys(newMethods).filter((m) => newMethods[m]);
+      if (remainingChecked.length === 1) {
+        const soleMethod = remainingChecked[0];
+        newAmounts[soleMethod] = totalPurchased > 0 ? totalPurchased.toFixed(2) : '';
+      }
     }
 
-    setProductDetailForm((prev) => ({
-      ...prev,
-      payment_methods: newMethods,
-      payment_amounts: newAmounts,
-    }));
-    recalculateBatchTotals(productDetailForm.products, newAmounts);
+    recalculateBatchTotals(productDetailForm.products, newAmounts, newMethods);
   };
 
   const handlePaymentAmountChange = (method, value) => {
     const newAmounts = { ...productDetailForm.payment_amounts, [method]: value };
-    recalculateBatchTotals(productDetailForm.products, newAmounts);
+    const totalPurchased = productDetailForm.products.reduce(
+      (sum, p) => sum + (parseFloat(p.purchase_price) || 0),
+      0
+    );
+    const checkedMethods = Object.keys(productDetailForm.payment_methods).filter(
+      (m) => productDetailForm.payment_methods[m]
+    );
+    const totalPaid = checkedMethods.reduce(
+      (sum, m) => sum + (parseFloat(newAmounts[m]) || 0),
+      0
+    );
+    const balance = Math.max(0, totalPurchased - totalPaid);
+
+    setProductDetailForm((prev) => ({
+      ...prev,
+      payment_amounts: newAmounts,
+      total_amount_purchased: Math.round(totalPurchased * 100) / 100,
+      total_amount_paid: Math.round(totalPaid * 100) / 100,
+      balance_amount: Math.round(balance * 100) / 100,
+    }));
   };
 
   const handleSaveProductDetail = async (e) => {
@@ -1927,7 +1991,7 @@ export default function ProductList() {
                   <label className="block text-xs font-bold text-slate-800">
                     Barcode Prefix <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">e.g. SS, DIVYA, BAR</span>
+                  <span className="text-[10px] text-slate-400">e.g. SS, SASTHA, BAR</span>
                 </div>
                 <div className="relative">
                   <input
@@ -1947,10 +2011,10 @@ export default function ProductList() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setBarcodePrefix('DIVYA')}
+                      onClick={() => setBarcodePrefix('SASTHA')}
                       className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
                     >
-                      DIVYA
+                      SASTHA
                     </button>
                     <button
                       type="button"

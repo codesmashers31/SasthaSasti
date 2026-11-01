@@ -189,7 +189,7 @@ export default function UserList() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="ramesh@divyamurti.com"
+                  placeholder="ramesh@sasthasasti.com"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>

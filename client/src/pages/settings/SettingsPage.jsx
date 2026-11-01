@@ -5,12 +5,12 @@ import { Settings as SettingsIcon, ShieldCheck, Save, Clock } from 'lucide-react
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company'); // 'company' or 'audit'
   const [settings, setSettings] = useState({
-    company_name: 'Divya Murti - Sacred God Statue Enterprise',
-    company_gstin: '33AAAAA0000A1Z5',
+    company_name: 'Sastha Sasti Enterprises',
+    company_gstin: '',
     company_phone: '+91 98401 12233',
-    company_address: 'No. 108, Sannathi Street, Madurai, Tamil Nadu - 625001',
+    company_address: 'Tamil Nadu, India',
     default_gst_percent: '12',
-    invoice_prefix: 'DIVYA',
+    invoice_prefix: 'SS',
     printer_type: 'thermal_80mm',
   });
   const [auditLogs, setAuditLogs] = useState([]);
@@ -24,8 +24,14 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       const res = await api.get('/settings');
-      if (res.success && res.settings) {
-        setSettings((prev) => ({ ...prev, ...res.settings }));
+      const s = res?.settings || (res?.data && res?.data?.settings);
+      if (s) {
+        setSettings((prev) => ({
+          ...prev,
+          ...s,
+          company_name: (s.company_name && !s.company_name.toLowerCase().includes('divya')) ? s.company_name : 'Sastha Sasti Enterprises',
+          invoice_prefix: (s.invoice_prefix && s.invoice_prefix !== 'DIVYA') ? s.invoice_prefix : 'SS',
+        }));
       }
     } catch (err) {
       console.error(err);
@@ -48,6 +54,7 @@ export default function SettingsPage() {
     e.preventDefault();
     try {
       await api.post('/settings', settings);
+      window.dispatchEvent(new Event('company_settings_updated'));
       alert('Enterprise settings saved successfully');
     } catch (err) {
       alert(err.message || 'Save failed');

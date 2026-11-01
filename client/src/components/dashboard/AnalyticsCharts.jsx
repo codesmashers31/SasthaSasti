@@ -424,7 +424,7 @@ export default function AnalyticsCharts({ chartsData, loading }) {
           </div>
         </div>
 
-        {/* Chart 4: Top Performing Divine Murti */}
+        {/* Chart 4: Top Performing Products */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
