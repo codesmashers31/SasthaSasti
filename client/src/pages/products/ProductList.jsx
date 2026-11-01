@@ -78,16 +78,51 @@ export default function ProductList() {
   const [activeCatDropdownIdx, setActiveCatDropdownIdx] = useState(null);
   const [activeSubcatDropdownIdx, setActiveSubcatDropdownIdx] = useState(null);
 
-  const generateCustomBarcode = (pfx = barcodePrefix, sep = barcodeSeparator, dig = barcodeDigits) => {
-    const min = Math.pow(10, Math.max(2, dig - 1));
-    const max = Math.pow(10, Math.max(2, dig)) - 1;
-    const randNum = Math.floor(min + Math.random() * (max - min + 1));
-    const cleanSep = sep === 'none' ? '' : sep;
-    return `${(pfx || 'SS').toUpperCase()}${cleanSep}${randNum}`;
+  const getNextBarcode = (existingProducts = products, currentRows = []) => {
+    let maxNum = 0;
+
+    // Scan all existing products from database
+    if (Array.isArray(existingProducts)) {
+      for (const p of existingProducts) {
+        if (!p || !p.barcode) continue;
+        const bStr = String(p.barcode).trim();
+        // Ignore old random 10+ digit barcodes (like 8904056413276) and old hyphenated randoms (SS-8462)
+        if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+          continue;
+        }
+        const match = bStr.match(/(\d+)$/);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          if (val > maxNum) {
+            maxNum = val;
+          }
+        }
+      }
+    }
+
+    // Also scan all rows currently open in the form modal
+    if (Array.isArray(currentRows)) {
+      for (const r of currentRows) {
+        if (!r || !r.barcode) continue;
+        const bStr = String(r.barcode).trim();
+        if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+          continue;
+        }
+        const match = bStr.match(/(\d+)$/);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          if (val > maxNum) {
+            maxNum = val;
+          }
+        }
+      }
+    }
+
+    return String(maxNum + 1);
   };
 
   // Multi-Product Entry Form State (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod)
-  const initialProductRow = () => ({
+  const initialProductRow = (customBarcode) => ({
     id: '',
     name: '',
     category: '',
@@ -97,14 +132,14 @@ export default function ProductList() {
     purchase_price: 7500,
     margin_percentage: 60.0,
     selling_price: 2400,
-    gst: 12,
-    barcode: generateCustomBarcode(),
+    gst: 0,
+    barcode: customBarcode !== undefined ? customBarcode : '1',
   });
 
   const [productDetailForm, setProductDetailForm] = useState({
     supplier_id: '',
     supply_date: new Date().toISOString().split('T')[0],
-    products: [initialProductRow()],
+    products: [initialProductRow('1')],
     total_amount_purchased: 7500,
     payment_methods: {
       Cash: false,
@@ -122,7 +157,7 @@ export default function ProductList() {
     },
     total_amount_paid: 0,
     balance_amount: 7500,
-    gst_percent: 12,
+    gst_percent: 0,
     tax_inclusive: 'Yes',
     offer_available: 'No',
     offer_type: '%',
@@ -359,9 +394,17 @@ export default function ProductList() {
   // -------------------------------------------------------------------------
   // Product Detail Modal Handlers
   // -------------------------------------------------------------------------
-  const openProductModal = (forSupplierId = null) => {
+  const openProductModal = async (forSupplierId = null) => {
     setEditingProductId(null);
-    const initialRow = initialProductRow();
+    let nextBc = getNextBarcode(products, []);
+    try {
+      const res = await api.get('/products/next-barcode');
+      if (res?.nextBarcode) {
+        nextBc = res.nextBarcode;
+      }
+    } catch {}
+
+    const initialRow = initialProductRow(nextBc);
     const initTotal = initialRow.purchase_price;
 
     setProductDetailForm({
@@ -385,7 +428,7 @@ export default function ProductList() {
       },
       total_amount_paid: 0,
       balance_amount: initTotal,
-      gst_percent: 12,
+      gst_percent: 0,
       tax_inclusive: 'Yes',
       offer_available: 'No',
       offer_type: '%',
@@ -416,7 +459,7 @@ export default function ProductList() {
       purchase_price: purchaseTotal,
       margin_percentage: margin,
       selling_price: prod.selling_price || 0,
-      gst: prod.gst_percent || 12,
+      gst: prod.gst_percent !== undefined ? prod.gst_percent : 0,
       barcode: prod.barcode || prod.sku,
     };
 
@@ -441,7 +484,7 @@ export default function ProductList() {
       },
       total_amount_paid: 0,
       balance_amount: purchaseTotal,
-      gst_percent: prod.gst_percent || 12,
+      gst_percent: prod.gst_percent !== undefined ? prod.gst_percent : 0,
       tax_inclusive: 'Yes',
       offer_available: 'No',
       offer_type: '%',
@@ -454,7 +497,8 @@ export default function ProductList() {
   };
 
   const addProductRow = () => {
-    const newRow = initialProductRow();
+    const nextBc = getNextBarcode(products, productDetailForm.products);
+    const newRow = initialProductRow(nextBc);
     const updatedProducts = [...productDetailForm.products, newRow];
     recalculateBatchTotals(updatedProducts, productDetailForm.payment_amounts);
   };
@@ -643,7 +687,7 @@ export default function ProductList() {
         purchase_price: parseFloat(p.purchase_price) >= 0 ? parseFloat(p.purchase_price) : 0,
         margin_percentage: parseFloat(p.margin_percentage) >= 0 ? parseFloat(p.margin_percentage) : 60,
         selling_price: parseFloat(p.selling_price) >= 0 ? parseFloat(p.selling_price) : 0,
-        gst: parseFloat(p.gst) >= 0 ? parseFloat(p.gst) : 12,
+        gst: parseFloat(p.gst) >= 0 ? parseFloat(p.gst) : 0,
         barcode: (p.barcode || '').trim(),
       }));
 
@@ -735,7 +779,7 @@ export default function ProductList() {
       purchase_price: p.purchase_price || (p.piece_rate * (p.current_stock || 1)) || 0,
       margin_percentage: p.margin_percentage !== undefined ? p.margin_percentage : 60,
       selling_price: p.selling_price || 0,
-      gst: p.gst_percent || 12,
+      gst: p.gst_percent !== undefined ? p.gst_percent : 0,
       barcode: p.barcode || '',
     }));
 
@@ -1797,7 +1841,7 @@ export default function ProductList() {
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-[10px] font-bold text-slate-600 font-mono">{p.gst_percent || 12}%</span>
+                          <span className="text-[10px] font-bold text-slate-600 font-mono">{p.gst_percent !== undefined ? p.gst_percent : 0}%</span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span
@@ -2751,23 +2795,7 @@ export default function ProductList() {
 
                       {/* Barcode */}
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[10px] font-bold text-slate-700">Barcode</label>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleProductRowChange(
-                                idx,
-                                'barcode',
-                                `${barcodePrefix ? barcodePrefix + barcodeSeparator : '890'}${Math.floor(1000000000 + Math.random() * 9000000000)}`
-                              )
-                            }
-                            className="text-[10px] text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 cursor-pointer"
-                            title="Generate fresh barcode"
-                          >
-                            <i className="fas fa-sync-alt text-[9px]"></i> Auto-Gen
-                          </button>
-                        </div>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-1">Barcode</label>
                         <div className="relative">
                           <input
                             type="text"

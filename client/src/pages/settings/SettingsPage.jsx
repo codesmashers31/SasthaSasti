@@ -9,7 +9,7 @@ export default function SettingsPage() {
     company_gstin: '',
     company_phone: '+91 98401 12233',
     company_address: 'Tamil Nadu, India',
-    default_gst_percent: '12',
+    default_gst_percent: '0',
     invoice_prefix: 'SS',
     printer_type: 'thermal_80mm',
   });

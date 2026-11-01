@@ -26,7 +26,7 @@ const productSchema = new mongoose.Schema({
   wholesale_price: { type: Number, default: 0 },
   discount_percent: { type: Number, default: 0 },
   mrp: { type: Number, default: 0 },
-  gst_percent: { type: Number, default: 12 },
+  gst_percent: { type: Number, default: 0 },
   hsn_code: { type: String, default: '9701' },
   current_stock: { type: Number, default: 0 },
   min_stock_alert: { type: Number, default: 5 },

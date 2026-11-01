@@ -31,6 +31,7 @@ router.get('/dashboard/stats', protect, dashboardController.getDashboardStats);
 // 3. Products & Catalog
 router.get('/products', protect, productController.getProducts);
 router.get('/products/search/pos', protect, productController.searchForPos);
+router.get('/products/next-barcode', protect, productController.getNextBarcode);
 router.post('/products/scan', protect, productController.scanBarcode);
 router.post('/products/save-detail', protect, requirePermission('products.create'), productController.saveProductDetail);
 router.get('/products/:id', protect, productController.getProductById);

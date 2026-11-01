@@ -35,7 +35,7 @@ export default function PosTerminal() {
 
   // State: Discounts & Tax
   const [overallDiscount, setOverallDiscount] = useState('');
-  const [taxPreset, setTaxPreset] = useState('12');
+  const [taxPreset, setTaxPreset] = useState('0');
   const [customTaxRate, setCustomTaxRate] = useState('');
 
   // State: Modals
@@ -216,7 +216,7 @@ export default function PosTerminal() {
           unit_price: parseFloat(product.selling_price) || 0,
           quantity: 1,
           discount_percent: parseFloat(product.discount_percent) || 0,
-          tax_percent: parseFloat(product.gst_percent) || 12,
+          tax_percent: parseFloat(product.gst_percent) || 0,
           current_stock: parseInt(product.current_stock) || 0,
         },
       ];
@@ -366,7 +366,7 @@ export default function PosTerminal() {
     setCustomerName(bill.customerName === 'Anonymous User' ? '' : bill.customerName);
     setCustomerMobile(bill.customerMobile === '—' ? '' : bill.customerMobile);
     setOverallDiscount(bill.overallDiscount || '');
-    setTaxPreset(bill.taxPreset || '12');
+    setTaxPreset(bill.taxPreset || '0');
     setHeldBills(heldBills.filter((b) => b.id !== bill.id));
     setIsHeldModalOpen(false);
   };
@@ -919,8 +919,8 @@ export default function PosTerminal() {
                 onChange={(e) => setTaxPreset(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 font-semibold outline-none focus:border-amber-500 cursor-pointer"
               >
-                <option value="item">As per Item</option>
                 <option value="0">0% (Nil)</option>
+                <option value="item">As per Item</option>
                 <option value="5">5%</option>
                 <option value="12">12%</option>
                 <option value="18">18%</option>

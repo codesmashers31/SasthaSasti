@@ -88,6 +88,36 @@ export const searchForPos = async (req, res) => {
   }
 };
 
+export const getNextSequentialBarcode = async () => {
+  const products = await Product.find({}, 'barcode legacyId').lean();
+  let maxNum = 0;
+  for (const p of products) {
+    if (!p || !p.barcode) continue;
+    const bStr = String(p.barcode).trim();
+    // Exclude old random 10+ digit barcodes (e.g. 8904056413276) and old hyphenated randoms (SS-8462)
+    if (bStr.includes('-') || (bStr.length >= 10 && /^\d+$/.test(bStr))) {
+      continue;
+    }
+    const match = bStr.match(/(\d+)$/);
+    if (match) {
+      const val = parseInt(match[1], 10);
+      if (val > maxNum) {
+        maxNum = val;
+      }
+    }
+  }
+  return String(maxNum + 1);
+};
+
+export const getNextBarcode = async (req, res) => {
+  try {
+    const nextBarcode = await getNextSequentialBarcode();
+    res.json({ success: true, nextBarcode });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const scanBarcode = async (req, res) => {
   try {
     const code = req.body.code ? req.body.code.trim() : '';
@@ -120,7 +150,10 @@ export const createProduct = async (req, res) => {
       body.sku = `SKU-${Date.now().toString().slice(-5)}${count + 1}`;
     }
     if (!body.barcode) {
-      body.barcode = body.sku;
+      body.barcode = await getNextSequentialBarcode();
+    }
+    if (body.gst_percent === undefined) {
+      body.gst_percent = 0;
     }
 
     // Resolve category/subcategory names
@@ -346,8 +379,8 @@ export const saveProductDetail = async (req, res) => {
         sellingPrice = Math.round((purchasePrice + purchasePrice * (margin / 100)) * 100) / 100;
       }
 
-      const gst = parseFloat(item.gst || item.gst_percent || prod_gst || 12);
-      const barcode = item.barcode ? item.barcode.trim() : `890${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      const gst = parseFloat(item.gst !== undefined && item.gst !== '' ? item.gst : (item.gst_percent !== undefined && item.gst_percent !== '' ? item.gst_percent : (prod_gst !== undefined && prod_gst !== '' ? prod_gst : 0)));
+      const barcode = item.barcode && String(item.barcode).trim() ? String(item.barcode).trim() : await getNextSequentialBarcode();
 
       // Check if product already exists for this supplier
       let existingProd = null;
