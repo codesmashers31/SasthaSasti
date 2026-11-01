@@ -50,6 +50,13 @@ export default function ProductList() {
   const [barcodeDigits, setBarcodeDigits] = useState(4);
   const [barcodeLabelSize, setBarcodeLabelSize] = useState('50x25');
 
+  // Barcode Section Filters & Pagination State
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [barcodeCatFilter, setBarcodeCatFilter] = useState('');
+  const [barcodeSupplierFilter, setBarcodeSupplierFilter] = useState('');
+  const [barcodePerPage, setBarcodePerPage] = useState(10);
+  const [barcodeCurrentPage, setBarcodeCurrentPage] = useState(1);
+
   // Multi-Product Entry Form State (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod)
   const initialProductRow = () => ({
     id: '',
@@ -736,6 +743,262 @@ export default function ProductList() {
     });
   }, [suppliers, supplierSearch, supplierStatusFilter, supplierProductsFilter]);
 
+  // Barcode Filtered Products
+  const filteredBarcodeProducts = useMemo(() => {
+    return products.filter((p) => {
+      const q = barcodeSearch.toLowerCase().trim();
+      const matchesSearch =
+        !barcodeSearch ||
+        p.barcode?.toLowerCase().includes(q) ||
+        p.name?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q) ||
+        p.supplier_name?.toLowerCase().includes(q) ||
+        p.category_name?.toLowerCase().includes(q);
+
+      const matchesCat =
+        !barcodeCatFilter ||
+        String(p.category_id) === String(barcodeCatFilter) ||
+        p.category_name === barcodeCatFilter;
+
+      const matchesSupp =
+        !barcodeSupplierFilter ||
+        String(p.supplier_id) === String(barcodeSupplierFilter) ||
+        p.supplier_name === barcodeSupplierFilter;
+
+      return matchesSearch && matchesCat && matchesSupp;
+    });
+  }, [products, barcodeSearch, barcodeCatFilter, barcodeSupplierFilter]);
+
+  const totalBarcodePages = Math.ceil(filteredBarcodeProducts.length / barcodePerPage) || 1;
+  const paginatedBarcodeProducts = useMemo(() => {
+    const start = (barcodeCurrentPage - 1) * barcodePerPage;
+    return filteredBarcodeProducts.slice(start, start + barcodePerPage);
+  }, [filteredBarcodeProducts, barcodeCurrentPage, barcodePerPage]);
+
+  const generatePseudoBarcodeBars = (str) => {
+    const clean = String(str || '890123456789').replace(/[^a-zA-Z0-9]/g, '');
+    const bars = [];
+    bars.push('<div class="bar" style="width:2px;background:#000;height:100%;"></div>');
+    bars.push('<div style="width:1.5px;"></div>');
+    bars.push('<div class="bar" style="width:1.5px;background:#000;height:100%;"></div>');
+    bars.push('<div style="width:2px;"></div>');
+
+    for (let i = 0; i < clean.length; i++) {
+      const code = clean.charCodeAt(i);
+      const w1 = (code % 3) + 1;
+      const g = ((code >> 1) % 2) + 1;
+      const w2 = ((code >> 2) % 3) + 1;
+      bars.push(`<div class="bar" style="width:${w1}px;background:#000;height:100%;"></div>`);
+      bars.push(`<div style="width:${g}px;"></div>`);
+      bars.push(`<div class="bar" style="width:${w2}px;background:#000;height:100%;"></div>`);
+      bars.push('<div style="width:1.5px;"></div>');
+    }
+
+    bars.push('<div class="bar" style="width:2px;background:#000;height:100%;"></div>');
+    bars.push('<div style="width:1.5px;"></div>');
+    bars.push('<div class="bar" style="width:2px;background:#000;height:100%;"></div>');
+    return bars.join('');
+  };
+
+  const printSingleBarcode = (product) => {
+    if (!product) return;
+    const barcodeVal = product.barcode || product.sku || `${barcodePrefix}${barcodeSeparator}${product.legacyId || product._id}`;
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast('error', 'Please allow popups to print barcode labels.');
+      return;
+    }
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Barcode Label - ${product.name}</title>
+        <style>
+          @page { size: auto; margin: 0; }
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #fff;
+          }
+          .label-box {
+            border: 2px dashed #334155;
+            border-radius: 8px;
+            padding: 14px 18px;
+            text-align: center;
+            width: 280px;
+            box-sizing: border-box;
+          }
+          .brand {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #b45309;
+            margin-bottom: 4px;
+          }
+          .title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 4px 0 6px 0;
+            line-height: 1.3;
+          }
+          .barcode-bars {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 2px;
+            height: 38px;
+            margin: 6px auto 4px auto;
+          }
+          .barcode-val {
+            font-family: monospace;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #0f172a;
+          }
+          .price {
+            font-size: 16px;
+            font-weight: 800;
+            color: #047857;
+            margin-top: 6px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="label-box">
+          <div class="brand">Sastha Sasti Pooja Stores</div>
+          <div class="title">${product.name}</div>
+          <div class="barcode-bars">
+            ${generatePseudoBarcodeBars(barcodeVal)}
+          </div>
+          <div class="barcode-val">${barcodeVal}</div>
+          <div class="price">₹${Number(product.selling_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+      </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      win.close();
+    }, 400);
+  };
+
+  const printAllBarcodes = () => {
+    const listToPrint = filteredBarcodeProducts;
+    if (listToPrint.length === 0) {
+      showToast('warning', 'No products to print.');
+      return;
+    }
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast('error', 'Please allow popups to print barcode labels.');
+      return;
+    }
+    const cardsHtml = listToPrint.map((p) => {
+      const barcodeVal = p.barcode || p.sku || `${barcodePrefix}${barcodeSeparator}${p.legacyId || p._id}`;
+      return `
+        <div class="label-card">
+          <div class="brand">Sastha Sasti Pooja Stores</div>
+          <div class="title">${p.name}</div>
+          <div class="barcode-bars">
+            ${generatePseudoBarcodeBars(barcodeVal)}
+          </div>
+          <div class="barcode-val">${barcodeVal}</div>
+          <div class="price">₹${Number(p.selling_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+      `;
+    }).join('');
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>All Barcode Labels (${listToPrint.length})</title>
+        <style>
+          @page { size: auto; margin: 4mm; }
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 8px;
+            background: #fff;
+          }
+          .label-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+          .label-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 10px;
+            width: 220px;
+            text-align: center;
+            box-sizing: border-box;
+            page-break-inside: avoid;
+          }
+          .brand {
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #b45309;
+          }
+          .title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 3px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .barcode-bars {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 1.5px;
+            height: 28px;
+            margin: 4px auto 2px auto;
+          }
+          .barcode-val {
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #0f172a;
+          }
+          .price {
+            font-size: 12px;
+            font-weight: 800;
+            color: #047857;
+            margin-top: 3px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="label-grid">
+          ${cardsHtml}
+        </div>
+      </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      win.close();
+    }, 400);
+  };
+
   // Selected supplier name in combobox
   const selectedSupplierObj = suppliers.find(
     (s) => String(s._id) === String(productDetailForm.supplier_id) || String(s.legacyId) === String(productDetailForm.supplier_id) || String(s.id) === String(productDetailForm.supplier_id)
@@ -1361,34 +1624,129 @@ export default function ProductList() {
       {/* ========================================================================= */}
       {activeTab === 'barcode-section' && (
         <div className="bg-white border border-emerald-200/90 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in">
+          {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h4 className="text-xl font-extrabold text-emerald-950">Barcode Management</h4>
+              <h4 className="text-xl font-extrabold text-emerald-950 flex items-center gap-2">
+                <i className="fas fa-barcode text-emerald-600"></i>
+                Barcode Management
+              </h4>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                Generate and print barcode labels for products and inventory shelves.
+                Generate and print barcode labels for products, idol inventory, and showroom shelves.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={printAllBarcodes}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
             >
               <i className="fas fa-barcode"></i> Print All Barcodes
             </button>
           </div>
 
+          {/* Barcode Search & Filter Controls (Matching C:\xampp\htdocs\billing\billingsoftwaregod) */}
+          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/90 shadow-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+              {/* Search Input */}
+              <div className="lg:col-span-5 relative">
+                <i className="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input
+                  type="text"
+                  value={barcodeSearch}
+                  onChange={(e) => {
+                    setBarcodeSearch(e.target.value);
+                    setBarcodeCurrentPage(1);
+                  }}
+                  placeholder="Search Barcode No., Product Name, SKU, Supplier..."
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
+                />
+                {barcodeSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBarcodeSearch('');
+                      setBarcodeCurrentPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    <i className="fas fa-times-circle"></i>
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter */}
+              <div className="lg:col-span-3">
+                <select
+                  value={barcodeCatFilter}
+                  onChange={(e) => {
+                    setBarcodeCatFilter(e.target.value);
+                    setBarcodeCurrentPage(1);
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((c) => (
+                    <option key={c._id || c.id} value={c._id || c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Supplier Filter */}
+              <div className="lg:col-span-2">
+                <select
+                  value={barcodeSupplierFilter}
+                  onChange={(e) => {
+                    setBarcodeSupplierFilter(e.target.value);
+                    setBarcodeCurrentPage(1);
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
+                >
+                  <option value="">All Suppliers</option>
+                  {suppliers.map((s) => (
+                    <option key={s._id || s.id} value={s._id || s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Reset & Badge */}
+              <div className="lg:col-span-2 flex items-center justify-between sm:justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcodeSearch('');
+                    setBarcodeCatFilter('');
+                    setBarcodeSupplierFilter('');
+                    setBarcodeCurrentPage(1);
+                  }}
+                  title="Reset Filters"
+                  className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i className="fas fa-undo text-[10px]"></i> Reset
+                </button>
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 whitespace-nowrap">
+                  {filteredBarcodeProducts.length} Barcodes
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Barcode Settings Strip */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Prefix</label>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Prefix</label>
               <input
                 type="text"
                 value={barcodePrefix}
                 onChange={(e) => setBarcodePrefix(e.target.value.toUpperCase())}
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold"
+                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold uppercase"
               />
             </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Separator</label>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Separator</label>
               <input
                 type="text"
                 value={barcodeSeparator}
@@ -1396,8 +1754,8 @@ export default function ProductList() {
                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono"
               />
             </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Label Size</label>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Label Size</label>
               <select
                 value={barcodeLabelSize}
                 onChange={(e) => setBarcodeLabelSize(e.target.value)}
@@ -1409,6 +1767,138 @@ export default function ProductList() {
               </select>
             </div>
           </div>
+
+          {/* Barcode Products Table */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-100/90 text-slate-700 uppercase text-[10px] font-bold border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4 min-w-[150px]">Barcode No.</th>
+                  <th className="py-3 px-4 min-w-[220px]">Product Name & SKU</th>
+                  <th className="py-3 px-4 min-w-[130px]">Category</th>
+                  <th className="py-3 px-4 min-w-[140px]">Supplier Name</th>
+                  <th className="py-3 px-4 text-center min-w-[80px]">Stock</th>
+                  <th className="py-3 px-4 text-right min-w-[110px]">Selling Price</th>
+                  <th className="py-3 px-4 text-right min-w-[120px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {paginatedBarcodeProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="py-12 text-center text-slate-400">
+                      <i className="fas fa-barcode text-3xl mb-3 block text-slate-300"></i>
+                      <p className="font-bold text-slate-600 text-sm">No barcodes found</p>
+                      <p className="text-xs mt-1">Add products or suppliers to generate barcodes.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedBarcodeProducts.map((p) => {
+                    const barcodeVal = p.barcode || p.sku || `${barcodePrefix}${barcodeSeparator}${p.legacyId || p._id}`;
+                    return (
+                      <tr key={p._id || p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-bold text-xs border border-emerald-200">
+                            <i className="fas fa-barcode text-emerald-600"></i>
+                            {barcodeVal}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">{p.name}</div>
+                          <span className="font-mono text-[10px] text-slate-400">{p.sku || 'SKU-NONE'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px]">
+                            {p.category_name || 'General'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-700">
+                          {p.supplier_name || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono font-bold">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] ${
+                              (p.current_stock || 0) > 0
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {p.current_stock || 0}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                          ₹{Number(p.selling_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => printSingleBarcode(p)}
+                            className="bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <i className="fas fa-print text-[11px]"></i> Print Label
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Barcode Pagination Controls */}
+          {filteredBarcodeProducts.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-500 font-medium">
+                <span>
+                  Showing {Math.min((barcodeCurrentPage - 1) * barcodePerPage + 1, filteredBarcodeProducts.length)} to{' '}
+                  {Math.min(barcodeCurrentPage * barcodePerPage, filteredBarcodeProducts.length)} of{' '}
+                  {filteredBarcodeProducts.length} entries
+                </span>
+                <span className="mx-1">•</span>
+                <label className="flex items-center gap-1.5">
+                  <span>Show</span>
+                  <select
+                    value={barcodePerPage}
+                    onChange={(e) => {
+                      setBarcodePerPage(Number(e.target.value));
+                      setBarcodeCurrentPage(1);
+                    }}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-emerald-500 font-bold text-slate-700 cursor-pointer"
+                  >
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <span>per page</span>
+                </label>
+              </div>
+
+              {totalBarcodePages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={barcodeCurrentPage <= 1}
+                    onClick={() => setBarcodeCurrentPage((prev) => Math.max(1, prev - 1))}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-bold text-xs"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-2 font-bold text-slate-700">
+                    {barcodeCurrentPage} / {totalBarcodePages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={barcodeCurrentPage >= totalBarcodePages}
+                    onClick={() => setBarcodeCurrentPage((prev) => Math.min(totalBarcodePages, prev + 1))}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-bold text-xs"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1765,13 +2255,33 @@ export default function ProductList() {
 
                       {/* Barcode */}
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">Barcode (Auto)</label>
-                        <input
-                          type="text"
-                          value={row.barcode}
-                          readOnly
-                          className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-500 font-mono outline-none cursor-not-allowed"
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-slate-700">Barcode</label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleProductRowChange(
+                                idx,
+                                'barcode',
+                                `${barcodePrefix ? barcodePrefix + barcodeSeparator : '890'}${Math.floor(1000000000 + Math.random() * 9000000000)}`
+                              )
+                            }
+                            className="text-[10px] text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 cursor-pointer"
+                            title="Generate fresh barcode"
+                          >
+                            <i className="fas fa-sync-alt text-[9px]"></i> Auto-Gen
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={row.barcode}
+                            onChange={(e) => handleProductRowChange(idx, 'barcode', e.target.value)}
+                            placeholder="Scan or enter barcode"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-800 font-mono font-bold outline-none focus:border-amber-500"
+                          />
+                          <i className="fas fa-barcode absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        </div>
                       </div>
                     </div>
                   ))}

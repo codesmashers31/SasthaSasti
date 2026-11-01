@@ -103,6 +103,8 @@ router.put('/categories/:id', protect, categoryController.updateCategory);
 router.delete('/categories/:id', protect, categoryController.deleteCategory);
 router.get('/subcategories', protect, categoryController.getSubCategories);
 router.post('/subcategories', protect, categoryController.createSubCategory);
+router.put('/subcategories/:id', protect, categoryController.updateSubCategory);
+router.delete('/subcategories/:id', protect, categoryController.deleteSubCategory);
 
 // 15. Staff, Roles & Permissions
 router.get('/users', protect, userController.getUsers);

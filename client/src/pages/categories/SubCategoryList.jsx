@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/client';
+import { useToast } from '../../context/ToastContext';
 
 export default function SubCategoryList() {
+  const { showToast } = useToast();
   const [subcategories, setSubcategories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingSubcat, setEditingSubcat] = useState(null);
 
@@ -30,11 +33,13 @@ export default function SubCategoryList() {
       if (cRes && cRes.data) {
         setCategories(cRes.data);
         if (cRes.data.length > 0 && !formData.category_id) {
-          setFormData((prev) => ({ ...prev, category_id: cRes.data[0].legacyId || cRes.data[0].id || cRes.data[0]._id }));
+          const firstId = cRes.data[0]._id || cRes.data[0].id || cRes.data[0].legacyId;
+          setFormData((prev) => ({ ...prev, category_id: firstId }));
         }
       }
     } catch (err) {
       console.error(err);
+      showToast('error', err.message || 'Failed to load subcategories');
     } finally {
       setLoading(false);
     }
@@ -42,10 +47,11 @@ export default function SubCategoryList() {
 
   const handleOpenAdd = () => {
     setEditingSubcat(null);
+    const defaultCatId = categories[0]?._id || categories[0]?.id || categories[0]?.legacyId || '';
     setFormData({
       name: '',
       code: '',
-      category_id: categories[0]?.legacyId || categories[0]?.id || categories[0]?._id || '',
+      category_id: defaultCatId,
       description: '',
     });
     setShowModal(true);
@@ -56,34 +62,44 @@ export default function SubCategoryList() {
     setFormData({
       name: subcat.name,
       code: subcat.code || '',
-      category_id: subcat.category_id || '',
+      category_id: subcat.category_id || (categories[0]?._id || categories[0]?.id || ''),
       description: subcat.description || '',
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete subcategory "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete subcategory "${name}"?`)) return;
     try {
       await api.delete(`/subcategories/${id}`);
+      showToast('success', `Subcategory "${name}" deleted successfully.`);
       loadData();
     } catch (err) {
-      alert(err.message || 'Failed to delete');
+      showToast('error', err.message || 'Failed to delete subcategory');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      showToast('warning', 'Subcategory Name is required.');
+      return;
+    }
     try {
+      setSubmitting(true);
       if (editingSubcat) {
         await api.put(`/subcategories/${editingSubcat._id || editingSubcat.id}`, formData);
+        showToast('success', 'Subcategory updated successfully!');
       } else {
         await api.post('/subcategories', formData);
+        showToast('success', 'Subcategory created successfully!');
       }
       setShowModal(false);
       loadData();
     } catch (err) {
-      alert(err.message || 'Failed to save subcategory');
+      showToast('error', err.message || 'Failed to save subcategory');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -151,14 +167,16 @@ export default function SubCategoryList() {
                   <button
                     type="button"
                     onClick={() => handleEdit(s)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-amber-800 text-xs cursor-pointer"
+                    title="Edit Subcategory"
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-800 text-xs cursor-pointer transition-colors"
                   >
                     <i className="fas fa-edit"></i>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(s._id || s.id, s.name)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs cursor-pointer"
+                    title="Delete Subcategory"
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs cursor-pointer transition-colors"
                   >
                     <i className="fas fa-trash-alt"></i>
                   </button>
@@ -172,7 +190,7 @@ export default function SubCategoryList() {
       {/* Add / Edit Subcategory Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
                 {editingSubcat ? 'Edit Subcategory' : 'Add Subcategory'}
@@ -180,7 +198,7 @@ export default function SubCategoryList() {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
               >
                 <i className="fas fa-times"></i>
               </button>
@@ -196,7 +214,7 @@ export default function SubCategoryList() {
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:border-amber-500 outline-none cursor-pointer"
                 >
                   {categories.map((c) => (
-                    <option key={c._id || c.id} value={c.legacyId || c.id || c._id}>
+                    <option key={c._id || c.id} value={c._id || c.id || c.legacyId}>
                       {c.name}
                     </option>
                   ))}
@@ -233,7 +251,7 @@ export default function SubCategoryList() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Sacred iconography, posture details, and festivals..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-amber-500"
                 ></textarea>
               </div>
 
@@ -241,15 +259,18 @@ export default function SubCategoryList() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-200 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="gold-btn px-6 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer"
+                  disabled={submitting}
+                  className="gold-btn px-6 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
                 >
-                  Save Subcategory
+                  {submitting && <i className="fas fa-spinner fa-spin text-xs"></i>}
+                  <span>{submitting ? 'Saving...' : 'Save Subcategory'}</span>
                 </button>
               </div>
             </form>
