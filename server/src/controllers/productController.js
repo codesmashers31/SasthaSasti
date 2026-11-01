@@ -298,7 +298,7 @@ export const saveProductDetail = async (req, res) => {
         category = await Category.create({
           legacyId: catCount + 1,
           name: catName,
-          slug: catName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          code: `CAT-${catName.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
           status: 'active',
         });
       }
@@ -309,15 +309,21 @@ export const saveProductDetail = async (req, res) => {
       if (subcatName) {
         subcategory = await SubCategory.findOne({ 
           name: { $regex: new RegExp(`^${subcatName}$`, 'i') },
-          category_id: category.legacyId || category._id 
+          $or: [
+            { category_id: category._id },
+            { category_id: category._id.toString() },
+            { category_id: category.legacyId },
+            { category_name: category.name }
+          ]
         });
         if (!subcategory) {
           const subCount = await SubCategory.countDocuments();
           subcategory = await SubCategory.create({
             legacyId: subCount + 1,
-            category_id: category.legacyId || 1,
+            category_id: category._id || category.legacyId,
+            category_name: category.name,
             name: subcatName,
-            slug: subcatName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            code: `SUB-${subcatName.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
             status: 'active',
           });
         }

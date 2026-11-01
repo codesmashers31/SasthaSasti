@@ -49,6 +49,8 @@ export default function ProductList() {
   const [barcodeSeparator, setBarcodeSeparator] = useState('-');
   const [barcodeDigits, setBarcodeDigits] = useState(4);
   const [barcodeLabelSize, setBarcodeLabelSize] = useState('50x25');
+  const [savingBarcodeSettings, setSavingBarcodeSettings] = useState(false);
+  const [barcodeSampleKey, setBarcodeSampleKey] = useState(0);
 
   // Barcode Section Filters & Pagination State
   const [barcodeSearch, setBarcodeSearch] = useState('');
@@ -56,6 +58,33 @@ export default function ProductList() {
   const [barcodeSupplierFilter, setBarcodeSupplierFilter] = useState('');
   const [barcodePerPage, setBarcodePerPage] = useState(10);
   const [barcodeCurrentPage, setBarcodeCurrentPage] = useState(1);
+
+  // Quick Add Category Modal State in Product Form
+  const [showQuickCatModal, setShowQuickCatModal] = useState(false);
+  const [quickCatTargetRowIdx, setQuickCatTargetRowIdx] = useState(null);
+  const [quickCatName, setQuickCatName] = useState('');
+  const [quickCatStatus, setQuickCatStatus] = useState('active');
+  const [quickCatSubmitting, setQuickCatSubmitting] = useState(false);
+
+  // Quick Add Subcategory Modal State in Product Form
+  const [showQuickSubcatModal, setShowQuickSubcatModal] = useState(false);
+  const [quickSubcatTargetRowIdx, setQuickSubcatTargetRowIdx] = useState(null);
+  const [quickSubcatParentCatId, setQuickSubcatParentCatId] = useState('');
+  const [quickSubcatName, setQuickSubcatName] = useState('');
+  const [quickSubcatStatus, setQuickSubcatStatus] = useState('active');
+  const [quickSubcatSubmitting, setQuickSubcatSubmitting] = useState(false);
+
+  // Active Combobox Dropdowns in Product Rows
+  const [activeCatDropdownIdx, setActiveCatDropdownIdx] = useState(null);
+  const [activeSubcatDropdownIdx, setActiveSubcatDropdownIdx] = useState(null);
+
+  const generateCustomBarcode = (pfx = barcodePrefix, sep = barcodeSeparator, dig = barcodeDigits) => {
+    const min = Math.pow(10, Math.max(2, dig - 1));
+    const max = Math.pow(10, Math.max(2, dig)) - 1;
+    const randNum = Math.floor(min + Math.random() * (max - min + 1));
+    const cleanSep = sep === 'none' ? '' : sep;
+    return `${(pfx || 'SS').toUpperCase()}${cleanSep}${randNum}`;
+  };
 
   // Multi-Product Entry Form State (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod)
   const initialProductRow = () => ({
@@ -69,7 +98,7 @@ export default function ProductList() {
     margin_percentage: 60.0,
     selling_price: 2400,
     gst: 12,
-    barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+    barcode: generateCustomBarcode(),
   });
 
   const [productDetailForm, setProductDetailForm] = useState({
@@ -197,6 +226,135 @@ export default function ProductList() {
       setLoading(false);
     }
   };
+
+  // Close Category & Subcategory comboboxes on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.cat-combobox-wrapper') && !e.target.closest('.subcat-combobox-wrapper')) {
+        setActiveCatDropdownIdx(null);
+        setActiveSubcatDropdownIdx(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Quick Add Category Handlers
+  const openQuickAddCategoryModal = (rowIdx, initialName = '') => {
+    setQuickCatTargetRowIdx(rowIdx);
+    setQuickCatName(initialName || '');
+    setQuickCatStatus('active');
+    setShowQuickCatModal(true);
+  };
+
+  const submitQuickCategory = async (e) => {
+    e.preventDefault();
+    if (!quickCatName.trim()) {
+      showToast('warning', 'Category Name is required.');
+      return;
+    }
+    try {
+      setQuickCatSubmitting(true);
+      const res = await api.post('/categories', {
+        name: quickCatName.trim(),
+        status: quickCatStatus,
+      });
+      if (res && res.data) {
+        const newCat = res.data;
+        setCategories((prev) => [...prev, newCat]);
+        if (quickCatTargetRowIdx !== null) {
+          handleProductRowChange(quickCatTargetRowIdx, 'category', newCat.name);
+        }
+        showToast('success', `Category "${newCat.name}" added successfully!`);
+        setShowQuickCatModal(false);
+      }
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add category');
+    } finally {
+      setQuickCatSubmitting(false);
+    }
+  };
+
+  // Quick Add Subcategory Handlers
+  const openQuickAddSubcategoryModal = (rowIdx, initialName = '', parentCatName = '') => {
+    setQuickSubcatTargetRowIdx(rowIdx);
+    setQuickSubcatName(initialName || '');
+    setQuickSubcatStatus('active');
+
+    // Auto-select parent category if entered in the adjacent category field
+    let matchedParentId = '';
+    if (parentCatName) {
+      const found = categories.find(
+        (c) => c.name.toLowerCase() === parentCatName.toLowerCase()
+      );
+      if (found) matchedParentId = found._id || found.id || found.legacyId;
+    }
+    if (!matchedParentId && categories.length > 0) {
+      matchedParentId = categories[0]._id || categories[0].id || categories[0].legacyId;
+    }
+    setQuickSubcatParentCatId(matchedParentId);
+    setShowQuickSubcatModal(true);
+  };
+
+  const submitQuickSubcategory = async (e) => {
+    e.preventDefault();
+    if (!quickSubcatName.trim()) {
+      showToast('warning', 'Subcategory Name is required.');
+      return;
+    }
+    try {
+      setQuickSubcatSubmitting(true);
+      const res = await api.post('/subcategories', {
+        name: quickSubcatName.trim(),
+        category_id: quickSubcatParentCatId,
+        status: quickSubcatStatus,
+      });
+      if (res && res.data) {
+        const newSubcat = res.data;
+        setSubcategories((prev) => [...prev, newSubcat]);
+        if (quickSubcatTargetRowIdx !== null) {
+          handleProductRowChange(quickSubcatTargetRowIdx, 'subcategory', newSubcat.name);
+        }
+        showToast('success', `Subcategory "${newSubcat.name}" added successfully!`);
+        setShowQuickSubcatModal(false);
+      }
+    } catch (err) {
+      showToast('error', err.message || 'Failed to add subcategory');
+    } finally {
+      setQuickSubcatSubmitting(false);
+    }
+  };
+
+  // Barcode Configuration Save Handler
+  const saveBarcodeConfiguration = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setSavingBarcodeSettings(true);
+      await api.post('/barcode/settings', {
+        prefix: barcodePrefix,
+        separator: barcodeSeparator,
+        numberLength: barcodeDigits,
+      });
+      showToast('success', 'Barcode customization settings saved successfully!');
+    } catch (err) {
+      showToast('error', err.message || 'Failed to save barcode settings');
+    } finally {
+      setSavingBarcodeSettings(false);
+    }
+  };
+
+  // Live 4-sample barcodes generator
+  const sampleBarcodes = useMemo(() => {
+    const min = Math.pow(10, Math.max(2, barcodeDigits - 1));
+    const max = Math.pow(10, Math.max(2, barcodeDigits)) - 1;
+    const cleanSep = barcodeSeparator === 'none' ? '' : barcodeSeparator;
+    return [
+      `${(barcodePrefix || 'SS').toUpperCase()}${cleanSep}${Math.floor(min + Math.random() * (max - min + 1))}`,
+      `${(barcodePrefix || 'SS').toUpperCase()}${cleanSep}${Math.floor(min + Math.random() * (max - min + 1))}`,
+      `${(barcodePrefix || 'SS').toUpperCase()}${cleanSep}${Math.floor(min + Math.random() * (max - min + 1))}`,
+      `${(barcodePrefix || 'SS').toUpperCase()}${cleanSep}${Math.floor(min + Math.random() * (max - min + 1))}`,
+    ];
+  }, [barcodePrefix, barcodeSeparator, barcodeDigits, barcodeSampleKey]);
 
   // -------------------------------------------------------------------------
   // Product Detail Modal Handlers
@@ -1734,37 +1892,187 @@ export default function ProductList() {
             </div>
           </div>
 
-          {/* Barcode Settings Strip */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Prefix</label>
-              <input
-                type="text"
-                value={barcodePrefix}
-                onChange={(e) => setBarcodePrefix(e.target.value.toUpperCase())}
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold uppercase"
-              />
+          {/* Barcode Customization & Generator Rules Panel (Matching C:\xampp\htdocs\billing\billingsoftwaregod\app\Views\settings\barcode.php) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shadow-xs">
+                  <i className="fas fa-sliders-h"></i>
+                </div>
+                <div>
+                  <h5 className="text-sm font-extrabold text-slate-900">Barcode Generation Rules</h5>
+                  <p className="text-[11px] text-slate-500">Customize prefix word, separator, digit count and label size</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>
+                    Active Format:{' '}
+                    <strong className="font-mono">
+                      {barcodePrefix}
+                      {barcodeSeparator === 'none' ? '' : barcodeSeparator}
+                      {'X'.repeat(barcodeDigits)}
+                    </strong>
+                  </span>
+                </span>
+              </div>
             </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Separator</label>
-              <input
-                type="text"
-                value={barcodeSeparator}
-                onChange={(e) => setBarcodeSeparator(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono"
-              />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Prefix (4 cols) */}
+              <div className="lg:col-span-4 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Barcode Prefix <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">e.g. SS, DIVYA, BAR</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={barcodePrefix}
+                    onChange={(e) => setBarcodePrefix(e.target.value.toUpperCase())}
+                    className="w-full bg-white border border-slate-300 rounded-xl pl-3 pr-24 py-2 text-xs font-mono font-bold text-slate-900 uppercase tracking-wider outline-none focus:border-emerald-500"
+                  />
+                  <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setBarcodePrefix('SS')}
+                      className="px-1.5 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 cursor-pointer"
+                    >
+                      SS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBarcodePrefix('DIVYA')}
+                      className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                    >
+                      DIVYA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBarcodePrefix('BAR')}
+                      className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                    >
+                      BAR
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Separator (3 cols) */}
+              <div className="lg:col-span-3 space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800">Separator</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: '-', value: '-' },
+                    { label: '_', value: '_' },
+                    { label: '/', value: '/' },
+                    { label: 'None', value: 'none' },
+                  ].map((sep) => (
+                    <button
+                      key={sep.value}
+                      type="button"
+                      onClick={() => setBarcodeSeparator(sep.value)}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
+                        barcodeSeparator === sep.value
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500 shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {sep.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Number Length (3 cols) */}
+              <div className="lg:col-span-3 space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800">Number Length</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[4, 5, 6, 8].map((dig) => (
+                    <button
+                      key={dig}
+                      type="button"
+                      onClick={() => setBarcodeDigits(dig)}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
+                        barcodeDigits === dig
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500 shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {dig}D
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Label Size (2 cols) */}
+              <div className="lg:col-span-2 space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800">Label Size</label>
+                <select
+                  value={barcodeLabelSize}
+                  onChange={(e) => setBarcodeLabelSize(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-xs text-slate-700 outline-none focus:border-emerald-500 cursor-pointer font-medium"
+                >
+                  <option value="50x25">50x25mm</option>
+                  <option value="38x25">38x25mm</option>
+                  <option value="100x50">100x50mm</option>
+                </select>
+              </div>
             </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">Label Size</label>
-              <select
-                value={barcodeLabelSize}
-                onChange={(e) => setBarcodeLabelSize(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs"
-              >
-                <option value="50x25">50mm x 25mm (Standard)</option>
-                <option value="38x25">38mm x 25mm (Compact)</option>
-                <option value="100x50">100mm x 50mm (Large Altar)</option>
-              </select>
+
+            {/* Live Sample Barcodes Display Box */}
+            <div className="bg-white border border-emerald-200/70 rounded-xl p-3.5 shadow-xs">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
+                    <i className="fas fa-barcode"></i>
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">Live Sample Barcodes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBarcodeSampleKey((prev) => prev + 1)}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <i className="fas fa-sync-alt text-[10px]"></i> Regenerate Samples
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveBarcodeConfiguration}
+                    disabled={savingBarcodeSettings}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {savingBarcodeSettings && <i className="fas fa-spinner fa-spin text-[10px]"></i>}
+                    <span>{savingBarcodeSettings ? 'Saving...' : 'Save Barcode Rules'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {sampleBarcodes.map((code, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 text-center"
+                  >
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Sample {idx + 1}
+                    </div>
+                    <div
+                      className="flex justify-center items-end h-6 gap-0.5 mb-1.5 overflow-hidden"
+                      dangerouslySetInnerHTML={{ __html: generatePseudoBarcodeBars(code) }}
+                    />
+                    <div className="font-mono text-xs font-black text-slate-900 tracking-wider">
+                      {code}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -2146,32 +2454,156 @@ export default function ProductList() {
                         />
                       </div>
 
-                      {/* Category */}
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          Category
-                        </label>
+                      {/* Category Combobox */}
+                      <div className="relative cat-combobox-wrapper">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-slate-700">Category</label>
+                          <button
+                            type="button"
+                            onClick={() => openQuickAddCategoryModal(idx, row.category)}
+                            className="text-[10px] text-amber-700 hover:text-amber-800 font-bold flex items-center gap-0.5 cursor-pointer"
+                            title="Add new category"
+                          >
+                            <i className="fas fa-plus-circle text-[9px]"></i> New
+                          </button>
+                        </div>
                         <input
                           type="text"
-                          list="cat-datalist"
                           value={row.category}
-                          onChange={(e) => handleProductRowChange(idx, 'category', e.target.value)}
-                          placeholder="Search or type Category (Optional)"
+                          onFocus={() => setActiveCatDropdownIdx(idx)}
+                          onChange={(e) => {
+                            handleProductRowChange(idx, 'category', e.target.value);
+                            setActiveCatDropdownIdx(idx);
+                          }}
+                          placeholder="Search or type Category"
                           className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 font-medium"
                         />
+                        {activeCatDropdownIdx === idx && (
+                          <div
+                            className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1 animate-in fade-in zoom-in-95"
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            {categories
+                              .filter((c) =>
+                                !row.category || c.name.toLowerCase().includes(row.category.toLowerCase())
+                              )
+                              .map((c) => (
+                                <div
+                                  key={c._id || c.id}
+                                  onClick={() => {
+                                    handleProductRowChange(idx, 'category', c.name);
+                                    setActiveCatDropdownIdx(null);
+                                  }}
+                                  className="px-3 py-1.5 text-xs text-slate-700 hover:bg-amber-50 hover:text-amber-900 cursor-pointer flex items-center justify-between transition-colors font-medium"
+                                >
+                                  <span>{c.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">{c.code}</span>
+                                </div>
+                              ))}
+
+                            {categories.filter((c) =>
+                              !row.category || c.name.toLowerCase().includes(row.category.toLowerCase())
+                            ).length === 0 && (
+                              <div className="px-3 py-2 text-xs text-slate-400 italic bg-slate-50">
+                                No category found for "{row.category}"
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openQuickAddCategoryModal(idx, row.category);
+                                setActiveCatDropdownIdx(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100/70 border-t border-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <i className="fas fa-plus text-[10px]"></i> Add Category "{row.category || 'New'}"
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Subcategory */}
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">Subcategory</label>
+                      {/* Subcategory Combobox */}
+                      <div className="relative subcat-combobox-wrapper">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-slate-700">Subcategory</label>
+                          <button
+                            type="button"
+                            onClick={() => openQuickAddSubcategoryModal(idx, row.subcategory, row.category)}
+                            className="text-[10px] text-amber-700 hover:text-amber-800 font-bold flex items-center gap-0.5 cursor-pointer"
+                            title="Add new subcategory"
+                          >
+                            <i className="fas fa-plus-circle text-[9px]"></i> New
+                          </button>
+                        </div>
                         <input
                           type="text"
-                          list="subcat-datalist"
                           value={row.subcategory}
-                          onChange={(e) => handleProductRowChange(idx, 'subcategory', e.target.value)}
+                          onFocus={() => setActiveSubcatDropdownIdx(idx)}
+                          onChange={(e) => {
+                            handleProductRowChange(idx, 'subcategory', e.target.value);
+                            setActiveSubcatDropdownIdx(idx);
+                          }}
                           placeholder="Search or type Subcat"
                           className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 font-medium"
                         />
+                        {activeSubcatDropdownIdx === idx && (
+                          <div
+                            className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto py-1 animate-in fade-in zoom-in-95"
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            {subcategories
+                              .filter((s) => {
+                                const matchesCat =
+                                  !row.category ||
+                                  !s.category_name ||
+                                  s.category_name.toLowerCase() === row.category.toLowerCase();
+                                const matchesSearch =
+                                  !row.subcategory || s.name.toLowerCase().includes(row.subcategory.toLowerCase());
+                                return matchesCat && matchesSearch;
+                              })
+                              .map((s) => (
+                                <div
+                                  key={s._id || s.id}
+                                  onClick={() => {
+                                    handleProductRowChange(idx, 'subcategory', s.name);
+                                    setActiveSubcatDropdownIdx(null);
+                                  }}
+                                  className="px-3 py-1.5 text-xs text-slate-700 hover:bg-amber-50 hover:text-amber-900 cursor-pointer flex items-center justify-between transition-colors font-medium"
+                                >
+                                  <span>{s.name}</span>
+                                  <span className="text-[10px] text-amber-700 bg-amber-50 px-1 rounded">
+                                    {s.category_name || 'General'}
+                                  </span>
+                                </div>
+                              ))}
+
+                            {subcategories.filter((s) => {
+                              const matchesCat =
+                                !row.category ||
+                                !s.category_name ||
+                                s.category_name.toLowerCase() === row.category.toLowerCase();
+                              const matchesSearch =
+                                !row.subcategory || s.name.toLowerCase().includes(row.subcategory.toLowerCase());
+                              return matchesCat && matchesSearch;
+                            }).length === 0 && (
+                              <div className="px-3 py-2 text-xs text-slate-400 italic bg-slate-50">
+                                No subcategory found for "{row.subcategory}"
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openQuickAddSubcategoryModal(idx, row.subcategory, row.category);
+                                setActiveSubcatDropdownIdx(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100/70 border-t border-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <i className="fas fa-plus text-[10px]"></i> Add Subcategory "{row.subcategory || 'New'}"
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Pieces Count */}
@@ -3032,6 +3464,159 @@ export default function ProductList() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* QUICK ADD CATEGORY MODAL (Matches C:\xampp\htdocs\billing\billingsoftwaregod) */}
+      {/* ========================================================================= */}
+      {showQuickCatModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <i className="fas fa-folder-plus text-amber-600"></i>
+                Add Product Category
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowQuickCatModal(false)}
+                className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+              >
+                <i className="fas fa-times text-lg"></i>
+              </button>
+            </div>
+            <form onSubmit={submitQuickCategory} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Category Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={quickCatName}
+                  onChange={(e) => setQuickCatName(e.target.value)}
+                  placeholder="e.g. Hindu God Statues"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                <select
+                  value={quickCatStatus}
+                  onChange={(e) => setQuickCatStatus(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-amber-500"
+                >
+                  <option value="active">Available</option>
+                  <option value="inactive">Not Available</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickCatModal(false)}
+                  disabled={quickCatSubmitting}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickCatSubmitting}
+                  className="gold-btn px-5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  {quickCatSubmitting && <i className="fas fa-spinner fa-spin text-xs"></i>}
+                  <span>{quickCatSubmitting ? 'Saving...' : 'Save Category'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* QUICK ADD SUBCATEGORY MODAL (Matches C:\xampp\htdocs\billing\billingsoftwaregod) */}
+      {/* ========================================================================= */}
+      {showQuickSubcatModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <i className="fas fa-folder-plus text-amber-600"></i>
+                Add Subcategory
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowQuickSubcatModal(false)}
+                className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+              >
+                <i className="fas fa-times text-lg"></i>
+              </button>
+            </div>
+            <form onSubmit={submitQuickSubcategory} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Parent Category <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={quickSubcatParentCatId}
+                  onChange={(e) => setQuickSubcatParentCatId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-amber-500"
+                >
+                  <option value="">Select Parent Category</option>
+                  {categories.map((c) => (
+                    <option key={c._id || c.id} value={c._id || c.id || c.legacyId}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Subcategory Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={quickSubcatName}
+                  onChange={(e) => setQuickSubcatName(e.target.value)}
+                  placeholder="e.g. Lord Ganesha (Vinayagar)"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                <select
+                  value={quickSubcatStatus}
+                  onChange={(e) => setQuickSubcatStatus(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none focus:border-amber-500"
+                >
+                  <option value="active">Available</option>
+                  <option value="inactive">Not Available</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 mt-5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickSubcatModal(false)}
+                  disabled={quickSubcatSubmitting}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickSubcatSubmitting}
+                  className="gold-btn px-5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  {quickSubcatSubmitting && <i className="fas fa-spinner fa-spin text-xs"></i>}
+                  <span>{quickSubcatSubmitting ? 'Saving...' : 'Save Subcategory'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
