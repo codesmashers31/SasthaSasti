@@ -574,7 +574,7 @@ export default function PosTerminal() {
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col lg:flex-row gap-3 overflow-hidden select-none">
+    <div className="h-full min-h-0 flex flex-col lg:flex-row gap-3 overflow-hidden">
       {/* ======================================================== */}
       {/* LEFT SIDE: Catalog, Search, Barcode, Categories (65%) */}
       {/* ======================================================== */}
@@ -715,7 +715,7 @@ export default function PosTerminal() {
                       : isYellowWarning
                       ? 'yellow-blink-warning cursor-pointer shadow-xs'
                       : 'bg-white border border-slate-100 hover:border-amber-300 hover:shadow-md cursor-pointer'
-                  } shadow-sm rounded-2xl p-3.5 flex flex-col group transition-all select-none`}
+                  } shadow-sm rounded-2xl p-3.5 flex flex-col group transition-all`}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-1">
@@ -1260,7 +1260,7 @@ export default function PosTerminal() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Cash */}
                   <div className="p-3 bg-white border border-slate-200 hover:border-emerald-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
-                    <label className="cursor-pointer flex items-center gap-2 select-none w-full">
+                    <label className="cursor-pointer flex items-center gap-2 w-full">
                       <input
                         type="checkbox"
                         checked={payMethodCash}
@@ -1286,7 +1286,7 @@ export default function PosTerminal() {
 
                   {/* Card */}
                   <div className="p-3 bg-white border border-slate-200 hover:border-blue-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
-                    <label className="cursor-pointer flex items-center gap-2 select-none w-full">
+                    <label className="cursor-pointer flex items-center gap-2 w-full">
                       <input
                         type="checkbox"
                         checked={payMethodCard}
@@ -1312,7 +1312,7 @@ export default function PosTerminal() {
 
                   {/* UPI */}
                   <div className="p-3 bg-white border border-slate-200 hover:border-indigo-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
-                    <label className="cursor-pointer flex items-center gap-2 select-none w-full">
+                    <label className="cursor-pointer flex items-center gap-2 w-full">
                       <input
                         type="checkbox"
                         checked={payMethodUpi}
@@ -1399,7 +1399,7 @@ export default function PosTerminal() {
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <label
-                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white select-none transition-all ${
+                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white transition-all ${
                       receiptMode === 'thermal' ? 'border-amber-600 bg-amber-50 shadow-xs' : 'border-slate-200 hover:border-amber-400'
                     }`}
                   >
@@ -1416,7 +1416,7 @@ export default function PosTerminal() {
                   </label>
 
                   <label
-                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white select-none transition-all ${
+                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white transition-all ${
                       receiptMode === 'whatsapp' ? 'border-emerald-600 bg-emerald-50 shadow-xs' : 'border-slate-200 hover:border-emerald-400'
                     }`}
                   >
@@ -1433,7 +1433,7 @@ export default function PosTerminal() {
                   </label>
 
                   <label
-                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white select-none transition-all ${
+                    className={`cursor-pointer border-2 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 bg-white transition-all ${
                       receiptMode === 'both' ? 'border-indigo-600 bg-indigo-50 shadow-xs' : 'border-slate-200 hover:border-indigo-400'
                     }`}
                   >

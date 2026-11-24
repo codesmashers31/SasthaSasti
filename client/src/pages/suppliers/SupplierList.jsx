@@ -15,8 +15,8 @@ export default function SupplierList() {
     email: '',
     gst_number: '',
     address: '',
-    city: 'Swamimalai',
-    state: 'Tamil Nadu',
+    city: '',
+    state: '',
   });
 
   useEffect(() => {
@@ -44,8 +44,8 @@ export default function SupplierList() {
       email: '',
       gst_number: '',
       address: '',
-      city: 'Swamimalai',
-      state: 'Tamil Nadu',
+      city: '',
+      state: '',
     });
     setShowModal(true);
   };
@@ -59,8 +59,8 @@ export default function SupplierList() {
       email: s.email || '',
       gst_number: s.gst_number || '',
       address: s.address || '',
-      city: s.city || 'Swamimalai',
-      state: s.state || 'Tamil Nadu',
+      city: s.city || '',
+      state: s.state || '',
     });
     setShowModal(true);
   };
@@ -91,7 +91,7 @@ export default function SupplierList() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">Master Sthapathis & Bronze Foundries</h1>
@@ -150,7 +150,7 @@ export default function SupplierList() {
                     {s.supplier_code || s.code || `SUP-${s.legacyId || s.id}`}
                   </span>
                   <span className="text-[10px] text-slate-500 font-semibold">
-                    {s.city || 'Swamimalai'}, {s.state || 'Tamil Nadu'}
+                    {s.city ? `${s.city}${s.state ? `, ${s.state}` : ''}` : (s.state || '—')}
                   </span>
                 </div>
 
@@ -226,7 +226,7 @@ export default function SupplierList() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Swamimalai Bronze Heritage Works"
+                  placeholder="Enter foundry / workshop name"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:border-amber-500 outline-none"
                 />
               </div>
@@ -244,14 +244,13 @@ export default function SupplierList() {
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Phone Number <span className="text-rose-500">*</span>
+                    Phone Number (Optional)
                   </label>
                   <input
                     type="tel"
-                    required
                     value={formData.mobile}
                     onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                    placeholder="9443100001"
+                    placeholder="e.g. 9443100001 (Optional)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 focus:border-amber-500 outline-none"
                   />
                 </div>
@@ -282,20 +281,22 @@ export default function SupplierList() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">City / Town</label>
+                  <label className="block font-bold text-slate-700 mb-1">City / Town (Optional)</label>
                   <input
                     type="text"
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="Enter city (Optional)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">State</label>
+                  <label className="block font-bold text-slate-700 mb-1">State (Optional)</label>
                   <input
                     type="text"
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="Enter state (Optional)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none"
                   />
                 </div>

@@ -178,8 +178,8 @@ export default function ProductList() {
     email: '',
     purchase_date: new Date().toISOString().split('T')[0],
     address: '',
-    city: 'Swamimalai',
-    state: 'Tamil Nadu',
+    city: '',
+    state: '',
     gst_number: '',
     status: 'Active',
     products: [],
@@ -206,7 +206,7 @@ export default function ProductList() {
   const [quickSupplierForm, setQuickSupplierForm] = useState({
     name: '',
     mobile: '',
-    city: 'Swamimalai',
+    city: '',
     gst_number: '',
   });
 
@@ -747,8 +747,8 @@ export default function ProductList() {
       email: '',
       purchase_date: new Date().toISOString().split('T')[0],
       address: '',
-      city: 'Swamimalai',
-      state: 'Tamil Nadu',
+      city: '',
+      state: '',
       gst_number: '',
       status: 'Active',
       products: [],
@@ -821,8 +821,8 @@ export default function ProductList() {
       email: s.email || '',
       purchase_date: s.purchase_date || new Date().toISOString().split('T')[0],
       address: s.address || '',
-      city: s.city || 'Swamimalai',
-      state: s.state || 'Tamil Nadu',
+      city: s.city || '',
+      state: s.state || '',
       gst_number: s.gst_number || s.gstin || '',
       status: (s.status || 'Active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
       products: suppRows,
@@ -859,7 +859,7 @@ export default function ProductList() {
     setQuickSupplierForm({
       name: '',
       mobile: '',
-      city: 'Swamimalai',
+      city: '',
       gst_number: '',
     });
     setShowQuickSupplierModal(true);
@@ -867,12 +867,16 @@ export default function ProductList() {
 
   const handleQuickSupplierSubmit = async (e) => {
     e.preventDefault();
+    if (!quickSupplierForm.name.trim()) {
+      showToast('error', 'Supplier name is required');
+      return;
+    }
     try {
       setIsSavingQuickSupplier(true);
       const payload = {
-        name: quickSupplierForm.name.trim() || 'General Supplier',
+        name: quickSupplierForm.name.trim(),
         mobile: quickSupplierForm.mobile.trim(),
-        city: quickSupplierForm.city.trim() || 'Swamimalai',
+        city: quickSupplierForm.city.trim(),
         gst_number: quickSupplierForm.gst_number.trim().toUpperCase(),
         gstin: quickSupplierForm.gst_number.trim().toUpperCase(),
         status: 'active',
@@ -898,20 +902,24 @@ export default function ProductList() {
 
   const handleFullSupplierSubmit = async (e) => {
     e.preventDefault();
+    if (!fullSupplierForm.supplier_name.trim()) {
+      showToast('error', 'Supplier name is required');
+      return;
+    }
 
     try {
       setIsSavingSupplier(true);
 
       const payload = {
         supplier_id: fullSupplierForm.id,
-        supplier_name: fullSupplierForm.supplier_name.trim() || 'General Supplier',
+        supplier_name: fullSupplierForm.supplier_name.trim(),
         contact_person: (fullSupplierForm.contact_person || '').trim(),
         mobile_number: fullSupplierForm.mobile_number.trim(),
         email: (fullSupplierForm.email || '').trim(),
         purchase_date: fullSupplierForm.purchase_date || new Date().toISOString().split('T')[0],
         address: (fullSupplierForm.address || '').trim(),
-        city: (fullSupplierForm.city || '').trim() || 'Swamimalai',
-        state: (fullSupplierForm.state || '').trim() || 'Tamil Nadu',
+        city: (fullSupplierForm.city || '').trim(),
+        state: (fullSupplierForm.state || '').trim(),
         gst_number: (fullSupplierForm.gst_number || '').trim().toUpperCase(),
         status: (fullSupplierForm.status || 'Active').toLowerCase(),
         products: [],
@@ -1280,7 +1288,7 @@ export default function ProductList() {
   );
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12 select-none">
+    <div className="space-y-4 max-w-7xl mx-auto pb-12">
       {/* Compact Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
         <div>
@@ -1289,24 +1297,6 @@ export default function ProductList() {
             Product Management
           </h1>
           <p className="text-xs text-slate-500">Select an entry module below to manage your catalog and billing details</p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={openAddSupplierModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow cursor-pointer"
-          >
-            <i className="fas fa-plus"></i>
-            <span>Add Supplier</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => openProductModal()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow cursor-pointer"
-          >
-            <i className="fas fa-plus"></i>
-            <span>Add Products Detail</span>
-          </button>
         </div>
       </div>
 
@@ -2698,7 +2688,7 @@ export default function ProductList() {
                       key={method}
                       className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-col gap-2 hover:border-emerald-300 transition-all"
                     >
-                      <label className="flex items-center gap-2 cursor-pointer w-full select-none">
+                      <label className="flex items-center gap-2 cursor-pointer w-full">
                         <input
                           type="checkbox"
                           checked={productDetailForm.payment_methods[method]}
@@ -2830,13 +2820,14 @@ export default function ProductList() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Supplier Name
+                        Supplier Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
+                        required
                         value={fullSupplierForm.supplier_name}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, supplier_name: e.target.value })}
-                        placeholder="Enter supplier name (Defaults to General Supplier)"
+                        placeholder="Enter supplier name"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium text-slate-900"
                       />
                     </div>
@@ -2882,7 +2873,7 @@ export default function ProductList() {
                         type="text"
                         value={fullSupplierForm.city}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, city: e.target.value })}
-                        placeholder="e.g. Kumbakonam / Swamimalai"
+                        placeholder="Enter city (Optional)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
                       />
                     </div>
@@ -2893,7 +2884,7 @@ export default function ProductList() {
                         type="text"
                         value={fullSupplierForm.state}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, state: e.target.value })}
-                        placeholder="e.g. Tamil Nadu"
+                        placeholder="Enter state (Optional)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
                       />
                     </div>
@@ -2927,7 +2918,7 @@ export default function ProductList() {
                         type="text"
                         value={fullSupplierForm.address}
                         onChange={(e) => setFullSupplierForm({ ...fullSupplierForm, address: e.target.value })}
-                        placeholder="Enter street address / workshop location"
+                        placeholder="Enter street address / workshop location (Optional)"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-900"
                       />
                     </div>
@@ -2989,20 +2980,21 @@ export default function ProductList() {
             <form onSubmit={handleQuickSupplierSubmit} className="p-5 space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Supplier / Artisan Name
+                  Supplier / Artisan Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={quickSupplierForm.name}
                   onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, name: e.target.value })}
-                  placeholder="e.g. Swamimalai Bronze Works (Defaults to General Supplier)"
+                  placeholder="Enter supplier name"
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium"
                 />
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Mobile Number
+                  Mobile Number (Optional)
                 </label>
                 <input
                   type="tel"
@@ -3015,12 +3007,12 @@ export default function ProductList() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">City / Town</label>
+                  <label className="block font-bold text-slate-700 mb-1">City / Town (Optional)</label>
                   <input
                     type="text"
                     value={quickSupplierForm.city}
                     onChange={(e) => setQuickSupplierForm({ ...quickSupplierForm, city: e.target.value })}
-                    placeholder="Swamimalai"
+                    placeholder="Enter city (Optional)"
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 font-medium"
                   />
                 </div>

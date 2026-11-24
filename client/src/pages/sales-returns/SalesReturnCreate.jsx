@@ -80,7 +80,7 @@ export default function SalesReturnCreate() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12 select-none">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">Process Sales Return</h1>

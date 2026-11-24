@@ -25,7 +25,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/60 flex items-center justify-center p-4 select-none">
+    <div className="min-h-screen bg-slate-100/60 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-xl relative overflow-hidden">
           {/* Top Emblem */}

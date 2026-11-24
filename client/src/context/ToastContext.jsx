@@ -38,7 +38,7 @@ export const ToastProvider = ({ children }) => {
       {/* Floating Toast Container (Bottom-Right matching C:\xampp\htdocs\billing\billingsoftwaregod) */}
       <div
         id="toast-container"
-        className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none select-none px-3 sm:px-0"
+        className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-3 sm:px-0"
         role="region"
         aria-live="polite"
       >

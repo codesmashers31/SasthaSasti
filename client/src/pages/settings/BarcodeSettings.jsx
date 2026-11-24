@@ -57,7 +57,7 @@ export default function BarcodeSettings() {
   const previewBarcodeText = prefix ? `${prefix}${separator}${sampleNumber}` : sampleNumber;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 select-none">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Top Breadcrumbs & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

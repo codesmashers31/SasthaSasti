@@ -110,7 +110,7 @@ export default function PurchaseCreate() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 select-none">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">Create Sourcing Purchase Order</h1>
