@@ -287,6 +287,7 @@ export default function PosTerminal() {
   const numUpi = payMethodUpi ? parseFloat(payAmountUpi) || 0 : 0;
   const totalAmountPaid = Math.round((numCash + numCard + numUpi) * 100) / 100;
   const balanceToPay = Math.max(0, Math.round((grandTotal - totalAmountPaid) * 100) / 100);
+  const changeToReturn = Math.max(0, Math.round((totalAmountPaid - grandTotal) * 100) / 100);
 
   // Sync default pay amount when opening modal
   const openPaymentModal = () => {
@@ -454,7 +455,9 @@ export default function PosTerminal() {
         ? 'card'
         : 'cash';
 
-      const paidAmount = isDirect ? grandTotal : totalAmountPaid;
+      const paidAmount = isDirect ? grandTotal : Math.min(grandTotal, totalAmountPaid);
+      const tenderedAmount = isDirect ? grandTotal : totalAmountPaid;
+      const changeAmount = isDirect ? 0 : changeToReturn;
 
       const payload = {
         customer_name: customerName.trim() || 'Anonymous User',
@@ -466,6 +469,8 @@ export default function PosTerminal() {
         sales_mode: salesMode,
         payment_method: primaryMethod,
         paid_amount: paidAmount,
+        tendered_amount: tenderedAmount,
+        change_amount: changeAmount,
         receipt_mode: chosenReceiptMode,
         notes: invoiceNotes,
       };
@@ -591,6 +596,16 @@ export default function PosTerminal() {
               <span>Paid (${payMethod} • ${sMode}):</span>
               <span class="bold">₹${paidAmount}</span>
             </div>
+            ${(targetInvoice.change_amount > 0 || (targetInvoice.tendered_amount > targetInvoice.grand_total)) ? `
+            <div class="flex-between" style="padding-top: 2px;">
+              <span>Tendered / Received:</span>
+              <span class="bold">₹${parseFloat(targetInvoice.tendered_amount || targetInvoice.paid_amount).toFixed(2)}</span>
+            </div>
+            <div class="flex-between bold" style="padding-top: 2px; color: #000;">
+              <span>Change Returned:</span>
+              <span>₹${parseFloat(targetInvoice.change_amount || 0).toFixed(2)}</span>
+            </div>
+            ` : ''}
           </div>
 
           <div class="text-center" style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; font-size: 9px;">
@@ -622,11 +637,11 @@ export default function PosTerminal() {
       {/* LEFT SIDE: Catalog, Search, Barcode, Categories (65%) */}
       {/* ======================================================== */}
       <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl p-4 shadow-sm min-w-0 overflow-hidden">
-        {/* Top Toolbar: Search & Barcode Scan */}
+        {/* Top Toolbar: Search Products */}
         <div className="flex items-center gap-3 pb-3 border-b border-slate-100 shrink-0">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-600 text-sm">
-              <i className="fas fa-barcode"></i>
+              <i className="fas fa-search"></i>
             </div>
             <input
               ref={searchInputRef}
@@ -635,7 +650,7 @@ export default function PosTerminal() {
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value, selectedCategory.id)}
               onKeyDown={handleBarcodeOrSearchSubmit}
-              placeholder="Scan Barcode or Search Idol (Name, Code, Deity, Material) [F2]..."
+              placeholder="Search Idol or Item by Name, SKU, Code [F2]..."
               className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 transition-all outline-none"
             />
           </div>
@@ -956,7 +971,7 @@ export default function PosTerminal() {
             <div className="h-full flex flex-col items-center justify-center text-slate-400 py-10">
               <i className="fas fa-shopping-bag text-3xl mb-2 text-slate-300"></i>
               <p className="text-xs font-semibold">Your cart is empty</p>
-              <p className="text-[10px] text-slate-400">Click statues on left or scan barcode [F2]</p>
+              <p className="text-[10px] text-slate-400">Click statues or items on left to add to bill [F2]</p>
             </div>
           ) : (
             cart.map((item, idx) => (
@@ -1389,15 +1404,36 @@ export default function PosTerminal() {
                       </span>
                     </label>
                     {payMethodCash && (
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={payAmountCash}
-                        onChange={(e) => setPayAmountCash(e.target.value)}
-                        placeholder="Amount (₹)"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 font-mono font-bold text-slate-800 animate-in fade-in"
-                      />
+                      <div className="space-y-1.5 animate-in fade-in">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={payAmountCash}
+                          onChange={(e) => setPayAmountCash(e.target.value)}
+                          placeholder="Cash Received (₹)"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 font-mono font-bold text-slate-800"
+                        />
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPayAmountCash(grandTotal.toFixed(2))}
+                            className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold font-mono hover:bg-emerald-100 cursor-pointer"
+                          >
+                            Exact: ₹{grandTotal}
+                          </button>
+                          {[500, 1000, 2000].map((tender) => (
+                            <button
+                              key={tender}
+                              type="button"
+                              onClick={() => setPayAmountCash(tender.toFixed(2))}
+                              className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold font-mono hover:bg-amber-50 hover:border-amber-300 cursor-pointer"
+                            >
+                              ₹{tender}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
 
@@ -1478,10 +1514,10 @@ export default function PosTerminal() {
                 </div>
               )}
 
-              {/* Total Amount Paid & Balance to Pay */}
+              {/* Total Amount Paid & Balance to Pay & Change */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Total Amount Paid (₹)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Total Amount Received (₹)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1491,17 +1527,49 @@ export default function PosTerminal() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Balance to Pay (₹)</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {balanceToPay > 0 ? 'Remaining Balance to Pay (₹)' : 'Balance Status'}
+                  </label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
                     readOnly
-                    value={balanceToPay.toFixed(2)}
-                    className="w-full bg-rose-50 border border-rose-200 text-rose-700 font-bold rounded-xl px-3 py-2 text-sm outline-none cursor-not-allowed font-mono"
+                    value={balanceToPay > 0 ? `₹${balanceToPay.toFixed(2)}` : 'Fully Paid'}
+                    className={`w-full font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono ${
+                      balanceToPay > 0
+                        ? 'bg-rose-50 border border-rose-200 text-rose-700'
+                        : 'bg-emerald-50 border border-emerald-300 text-emerald-700'
+                    }`}
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Formula: Balance = Total Amount - Total Paid</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {balanceToPay > 0 ? 'Customer has outstanding due' : 'Bill is completely covered'}
+                  </p>
                 </div>
               </div>
+
+              {/* CHANGE / BALANCE TO RETURN DISPLAY */}
+              {changeToReturn > 0 && (
+                <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                      <i className="fas fa-hand-holding-usd"></i>
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-emerald-900 uppercase tracking-wide block">
+                        Change / Balance to Return Customer
+                      </span>
+                      <span className="text-[11px] text-emerald-700">
+                        Bill is ₹{grandTotal.toFixed(2)}, received ₹{totalAmountPaid.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-emerald-700 font-mono tracking-tight">
+                      ₹{changeToReturn.toFixed(2)}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold block uppercase">Return to Customer</span>
+                  </div>
+                </div>
+              )}
 
               {/* Receipt Delivery Mode */}
               <div className="pt-1">
@@ -1715,6 +1783,24 @@ export default function PosTerminal() {
                 </strong>
               </span>
             </div>
+
+            {/* Change to Return Customer Banner */}
+            {completedInvoice.change_amount > 0 && (
+              <div className="mt-3 p-3 bg-emerald-50 border-2 border-emerald-500 rounded-xl flex items-center justify-between text-left">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">
+                    <i className="fas fa-hand-holding-usd"></i>
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-emerald-900 block">Change to Return:</span>
+                    <span className="text-[10px] text-emerald-700">Hand change to customer</span>
+                  </div>
+                </div>
+                <span className="text-xl font-black text-emerald-700 font-mono">
+                  ₹{parseFloat(completedInvoice.change_amount).toFixed(2)}
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 mt-6">
               {/* Thermal 80mm Print */}

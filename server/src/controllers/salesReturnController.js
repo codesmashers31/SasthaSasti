@@ -6,22 +6,55 @@ import Account from '../models/Account.js';
 import AccountTransaction from '../models/AccountTransaction.js';
 import InventoryTransaction from '../models/InventoryTransaction.js';
 import ActivityLog from '../models/ActivityLog.js';
+import mongoose from 'mongoose';
 
 export const lookupInvoice = async (req, res) => {
   try {
     const { invoiceNo } = req.params;
-    if (!invoiceNo) return res.status(400).json({ success: false, message: 'Invoice number required' });
+    if (!invoiceNo) return res.status(400).json({ success: false, message: 'Invoice number or phone number required' });
 
-    const invoice = await Invoice.findOne({ invoice_no: invoiceNo.trim() });
-    if (!invoice) {
-      return res.status(404).json({ success: false, message: `Invoice #${invoiceNo} not found.` });
+    const query = invoiceNo.trim();
+    const cleanPhone = query.replace(/\D/g, '');
+    const isPhone = cleanPhone.length >= 7;
+
+    let invoices = [];
+    if (isPhone) {
+      const last10 = cleanPhone.slice(-10);
+      invoices = await Invoice.find({
+        $or: [
+          { customer_mobile: new RegExp(last10, 'i') },
+          { customer_mobile: query },
+          { invoice_no: query }
+        ],
+        status: { $ne: 'cancelled' }
+      }).sort({ createdAt: -1 }).limit(10);
+    } else {
+      const inv = await Invoice.findOne({ invoice_no: query });
+      if (inv && inv.status !== 'cancelled') invoices = [inv];
     }
 
-    if (invoice.status === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'This invoice is already cancelled.' });
+    if (!invoices.length) {
+      invoices = await Invoice.find({
+        $or: [
+          { invoice_no: new RegExp(query, 'i') },
+          { customer_mobile: new RegExp(query, 'i') },
+          { customer_name: new RegExp(query, 'i') }
+        ],
+        status: { $ne: 'cancelled' }
+      }).sort({ createdAt: -1 }).limit(10);
     }
 
-    res.json({ success: true, data: invoice });
+    if (!invoices.length) {
+      return res.status(404).json({ success: false, message: `No active invoices found for "${invoiceNo}".` });
+    }
+
+    res.json({
+      success: true,
+      data: invoices[0],
+      invoice: invoices[0],
+      items: invoices[0].items || [],
+      invoices: invoices,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -55,11 +88,16 @@ export const getSalesReturns = async (req, res) => {
 
 export const createSalesReturn = async (req, res) => {
   try {
-    const { invoice_id, items, refund_method = 'cash', account_id = 1, reason = '' } = req.body;
+    const { invoice_id, items, refund_method = 'cash', refund_mode, account_id = 1, reason = '' } = req.body;
+    const finalRefundMethod = refund_mode || refund_method || 'cash';
 
-    const invoice = await Invoice.findOne({
-      $or: [{ _id: invoice_id }, { invoice_no: invoice_id }]
-    });
+    let invoice = null;
+    if (invoice_id && mongoose.Types.ObjectId.isValid(invoice_id) && String(new mongoose.Types.ObjectId(invoice_id)) === String(invoice_id)) {
+      invoice = await Invoice.findById(invoice_id);
+    }
+    if (!invoice && invoice_id) {
+      invoice = await Invoice.findOne({ invoice_no: String(invoice_id).trim() });
+    }
 
     if (!invoice) return res.status(404).json({ success: false, message: 'Original invoice not found' });
 
@@ -69,7 +107,7 @@ export const createSalesReturn = async (req, res) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const returnQty = parseInt(item.return_quantity) || 0;
+      const returnQty = parseInt(item.return_quantity || item.return_qty) || 0;
       if (returnQty <= 0) continue;
 
       const unitPrice = parseFloat(item.unit_price) || 0;
@@ -78,7 +116,7 @@ export const createSalesReturn = async (req, res) => {
 
       validatedItems.push({
         product_id: item.product_id,
-        product_name: item.product_name,
+        product_name: item.product_name || item.name || 'Returned Item',
         quantity: returnQty,
         unit_price: unitPrice,
         tax_percent: item.tax_percent || 0,
@@ -86,13 +124,20 @@ export const createSalesReturn = async (req, res) => {
       });
 
       // Restock physical showroom inventory
-      const prod = await Product.findOne({
-        $or: [{ _id: item.product_id }, { legacyId: item.product_id }, { name: item.product_name }]
-      });
+      let prod = null;
+      if (item.product_id && mongoose.Types.ObjectId.isValid(item.product_id) && String(new mongoose.Types.ObjectId(item.product_id)) === String(item.product_id)) {
+        prod = await Product.findById(item.product_id);
+      }
+      if (!prod && item.product_id && !isNaN(Number(item.product_id))) {
+        prod = await Product.findOne({ legacyId: Number(item.product_id) });
+      }
+      if (!prod && (item.product_name || item.name)) {
+        prod = await Product.findOne({ name: item.product_name || item.name });
+      }
 
       if (prod) {
-        const prevStock = prod.current_stock;
-        prod.current_stock += returnQty;
+        const prevStock = prod.current_stock || 0;
+        prod.current_stock = prevStock + returnQty;
         await prod.save();
 
         await InventoryTransaction.create({
@@ -100,6 +145,7 @@ export const createSalesReturn = async (req, res) => {
           product_name: prod.name,
           transaction_type: 'return',
           quantity: returnQty,
+          unit_price: unitPrice,
           previous_stock: prevStock,
           new_stock: prod.current_stock,
           reference_type: 'sales_return',
@@ -115,10 +161,16 @@ export const createSalesReturn = async (req, res) => {
     }
 
     // Record refund disbursement from Cash/Bank Account if cash/bank refund
-    if (totalRefund > 0 && ['cash', 'bank', 'upi'].includes(refund_method)) {
-      const account = await Account.findOne({
-        $or: [{ _id: account_id }, { legacyId: account_id }, { type: 'cash' }]
-      });
+    if (totalRefund > 0 && ['cash', 'bank', 'upi'].includes(finalRefundMethod)) {
+      let account = null;
+      if (account_id && mongoose.Types.ObjectId.isValid(account_id) && String(new mongoose.Types.ObjectId(account_id)) === String(account_id)) {
+        account = await Account.findById(account_id);
+      } else if (account_id && !isNaN(Number(account_id))) {
+        account = await Account.findOne({ legacyId: Number(account_id) });
+      }
+      if (!account) {
+        account = await Account.findOne({ type: 'cash' });
+      }
       if (account) {
         account.current_balance = (Number(account.current_balance) || 0) - totalRefund;
         await account.save();
@@ -143,10 +195,11 @@ export const createSalesReturn = async (req, res) => {
       invoice_id: invoice.legacyId || invoice._id,
       invoice_no: invoice.invoice_no,
       customer_id: invoice.customer_id,
-      customer_name: invoice.customer_name,
+      customer_name: invoice.customer_name || 'Walk-in',
+      customer_mobile: invoice.customer_mobile || '',
       return_date: new Date().toISOString().slice(0, 10),
       refund_amount: totalRefund,
-      refund_method,
+      refund_method: finalRefundMethod,
       account_id: account_id || 1,
       reason,
       status: 'completed',

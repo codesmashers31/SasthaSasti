@@ -14,8 +14,8 @@ export default function UserList() {
     email: '',
     mobile: '',
     password: '',
-    role_id: 2,
-    department_id: 1,
+    role_id: '',
+    department_id: '',
   });
 
   useEffect(() => {
@@ -30,7 +30,12 @@ export default function UserList() {
         api.get('/roles'),
       ]);
       if (uRes.success) setUsers(uRes.data);
-      if (rRes.success) setRoles(rRes.data);
+      if (rRes.success && rRes.data) {
+        setRoles(rRes.data);
+        if (rRes.data.length > 0) {
+          setFormData(prev => ({ ...prev, role_id: prev.role_id || rRes.data[0]._id || rRes.data[0].legacyId }));
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -66,8 +71,8 @@ export default function UserList() {
         email: '',
         mobile: '',
         password: '',
-        role_id: 2,
-        department_id: 1,
+        role_id: roles[0]?._id || roles[0]?.legacyId || '',
+        department_id: '',
       });
       fetchUsers();
     } catch (err) {
@@ -209,11 +214,11 @@ export default function UserList() {
                 <label className="font-bold text-slate-700 block mb-1">Role</label>
                 <select
                   value={formData.role_id}
-                  onChange={(e) => setFormData({ ...formData, role_id: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
                 >
                   {roles.map((r) => (
-                    <option key={r._id} value={r.legacyId || r._id}>
+                    <option key={r._id || r.id} value={r._id || r.legacyId || r.id}>
                       {r.name}
                     </option>
                   ))}

@@ -80,8 +80,13 @@ export default function SalesReturnList() {
                     <td className="py-3.5 px-4 font-mono font-bold text-amber-800">
                       {r.invoice_no}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {r.customer_name || 'Walk-in'}
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900">{r.customer_name || 'Walk-in'}</div>
+                      {r.customer_mobile && (
+                        <div className="text-[10px] text-amber-700 font-mono font-semibold flex items-center gap-1 mt-0.5">
+                          <i className="fas fa-phone-alt text-[9px]"></i> {r.customer_mobile}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-black text-rose-600 text-sm">
                       ₹{parseFloat(r.refund_amount || 0).toFixed(2)}

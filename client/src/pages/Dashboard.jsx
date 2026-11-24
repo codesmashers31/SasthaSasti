@@ -72,6 +72,9 @@ export default function Dashboard() {
     onlineSales: 0.0,
     onlineOrdersCount: 0,
     onlinePercent: 0,
+    onlineMonthSales: 0.0,
+    onlineMonthOrdersCount: 0,
+    onlineMonthPercent: 0,
     periodSales: 0,
     periodInvoicesCount: 0,
   });
@@ -542,31 +545,37 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 3: Online Sales */}
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+        {/* Card 3: Online Monthly Sales */}
+        <div className="lg:col-span-3 bg-white border border-slate-200 hover:border-blue-300 rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all">
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-slate-700">
                 <i className="fas fa-globe text-blue-500"></i>
-                <span>ONLINE SALES</span>
+                <span>ONLINE MONTHLY SALES</span>
               </div>
               <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                {stats.onlinePercent}% of Sales
+                {stats.onlineMonthPercent || stats.onlinePercent || 0}% Online
               </span>
             </div>
 
-            <h3 className="text-2xl font-black text-blue-600 font-mono tracking-tight my-2">
-              ₹{stats.onlineSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <h3 className="text-2xl font-black text-blue-600 font-mono tracking-tight my-1.5">
+              ₹{(stats.onlineMonthSales !== undefined ? stats.onlineMonthSales : stats.onlineSales).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
+
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+              <span>{stats.onlineMonthOrdersCount !== undefined ? stats.onlineMonthOrdersCount : stats.onlineOrdersCount} online orders</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-blue-600 font-bold">{stats.monthName || 'This Month'}</span>
+            </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <i className="fas fa-shopping-bag text-slate-400"></i>
-              <span>{stats.onlineOrdersCount} online orders</span>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 mt-2">
+            <span className="flex items-center gap-1 text-[11px]">
+              <i className="fas fa-history text-slate-400"></i>
+              <span>Total Lifetime:</span>
             </span>
-            <span className="font-semibold text-slate-700 font-mono">
-              Overall: ₹{stats.onlineSales.toFixed(2)} ({stats.onlineOrdersCount})
+            <span className="font-bold text-slate-700 font-mono text-[11px]">
+              ₹{stats.onlineSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })} ({stats.onlineOrdersCount})
             </span>
           </div>
         </div>

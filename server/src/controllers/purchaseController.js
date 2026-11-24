@@ -3,6 +3,31 @@ import Product from '../models/Product.js';
 import Supplier from '../models/Supplier.js';
 import InventoryTransaction from '../models/InventoryTransaction.js';
 import ActivityLog from '../models/ActivityLog.js';
+import mongoose from 'mongoose';
+
+const findSupplier = async (id) => {
+  if (!id) return null;
+  const conditions = [];
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === String(id)) {
+    conditions.push({ _id: id });
+  }
+  const num = Number(id);
+  if (!isNaN(num)) conditions.push({ legacyId: num });
+  if (conditions.length === 0) return null;
+  return await Supplier.findOne({ $or: conditions });
+};
+
+const findProduct = async (id, sku) => {
+  const conditions = [];
+  if (id && mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === String(id)) {
+    conditions.push({ _id: id });
+  }
+  const num = Number(id);
+  if (!isNaN(num)) conditions.push({ legacyId: num });
+  if (sku) conditions.push({ sku });
+  if (conditions.length === 0) return null;
+  return await Product.findOne({ $or: conditions });
+};
 
 export const getPurchases = async (req, res) => {
   try {
@@ -56,9 +81,7 @@ export const createPurchase = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Purchase items required' });
     }
 
-    const supplier = await Supplier.findOne({
-      $or: [{ _id: supplier_id }, { legacyId: supplier_id }]
-    });
+    const supplier = await findSupplier(supplier_id);
 
     const count = await Purchase.countDocuments();
     const purchaseNo = `PO-${Date.now().toString().slice(-4)}${count + 1}`;
@@ -67,12 +90,10 @@ export const createPurchase = async (req, res) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const prod = await Product.findOne({
-        $or: [{ _id: item.product_id }, { legacyId: item.product_id }, { sku: item.sku }]
-      });
+      const prod = await findProduct(item.product_id, item.sku);
 
       const qty = parseInt(item.quantity) || 1;
-      const price = parseFloat(item.unit_price || item.purchase_price) || (prod ? prod.purchase_price : 0);
+      const price = parseFloat(item.unit_cost || item.unit_price || item.purchase_price) || (prod ? prod.purchase_price : 0);
       const taxPct = parseFloat(item.tax_percent) || 0;
       const lineTax = (qty * price * taxPct) / 100;
       const lineTotal = (qty * price) + lineTax;
@@ -82,7 +103,7 @@ export const createPurchase = async (req, res) => {
 
       validatedItems.push({
         product_id: prod ? prod.legacyId || prod._id : item.product_id,
-        product_name: prod ? prod.name : item.product_name,
+        product_name: prod ? prod.name : (item.product_name || 'Item'),
         quantity: qty,
         unit_price: price,
         tax_percent: taxPct,
@@ -92,8 +113,8 @@ export const createPurchase = async (req, res) => {
 
       // If status is 'received' or 'approved', auto-restock physical inventory!
       if (['received', 'approved'].includes(status) && prod) {
-        const prevStock = prod.current_stock;
-        prod.current_stock += qty;
+        const prevStock = prod.current_stock || 0;
+        prod.current_stock = prevStock + qty;
         await prod.save();
 
         await InventoryTransaction.create({
@@ -106,7 +127,7 @@ export const createPurchase = async (req, res) => {
           new_stock: prod.current_stock,
           reference_type: 'purchase_order',
           reference_no: purchaseNo,
-          notes: `Intake order from ${supplier ? supplier.name : 'Artisan'}`,
+          notes: `Intake order from ${supplier ? supplier.name : 'Supplier'}`,
           created_by: req.user ? req.user.legacyId || 1 : 1,
         });
       }
@@ -118,22 +139,22 @@ export const createPurchase = async (req, res) => {
     if (supplier) {
       supplier.total_purchased = (supplier.total_purchased || 0) + grandTotal;
       supplier.balance_due = (supplier.balance_due || 0) + grandTotal;
-      supplier.payment_status = supplier.total_paid >= supplier.total_purchased ? 'Paid' : (supplier.total_paid > 0 ? 'Partially Paid' : 'Unpaid');
+      supplier.payment_status = (supplier.total_paid || 0) >= supplier.total_purchased ? 'Paid' : ((supplier.total_paid || 0) > 0 ? 'Partially Paid' : 'Unpaid');
       await supplier.save();
     }
 
     const purchase = await Purchase.create({
       purchase_no: purchaseNo,
-      supplier_id: supplier ? supplier.legacyId || supplier._id : 1,
-      supplier_name: supplier ? supplier.name : 'Artisan',
+      supplier_id: supplier ? supplier.legacyId || supplier._id : supplier_id,
+      supplier_name: supplier ? supplier.name : (req.body.supplier_name || 'Supplier'),
       purchase_date: purchase_date || new Date().toISOString().slice(0, 10),
       subtotal,
       tax_amount: taxAmount,
       grand_total: grandTotal,
-      paid_amount: 0,
-      balance_amount: grandTotal,
+      paid_amount: parseFloat(req.body.paid_amount) || 0,
+      balance_amount: grandTotal - (parseFloat(req.body.paid_amount) || 0),
       status,
-      payment_status: 'unpaid',
+      payment_status: req.body.payment_status || 'unpaid',
       notes,
       created_by: req.user ? req.user.legacyId || 1 : 1,
       items: validatedItems,
@@ -145,7 +166,7 @@ export const createPurchase = async (req, res) => {
       action: 'create',
       module: 'purchases',
       reference_code: purchaseNo,
-      description: `Created sourcing purchase ${purchaseNo} for ₹${grandTotal} from ${supplier ? supplier.name : 'Artisan'}`,
+      description: `Created sourcing purchase ${purchaseNo} for ₹${grandTotal} from ${supplier ? supplier.name : 'Supplier'}`,
     });
 
     res.status(201).json({ success: true, message: 'Purchase order recorded & stock updated successfully', data: purchase });

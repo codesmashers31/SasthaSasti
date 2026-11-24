@@ -193,9 +193,9 @@ export default function Sidebar({ isOpen, onClose }) {
             <span>Sales Returns</span>
           </NavLink>
 
-          {/* Procurement & Artisans */}
+          {/* Procurement & Sourcing */}
           <div className="pt-3 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Procurement & Artisans
+            Procurement
           </div>
           <NavLink
             to="/purchases"
@@ -207,17 +207,6 @@ export default function Sidebar({ isOpen, onClose }) {
           >
             <i className={`fas fa-truck-loading text-sm w-4 ${isActive('/purchases') ? 'text-white' : 'text-slate-400'}`}></i>
             <span>Sourcing Purchases</span>
-          </NavLink>
-          <NavLink
-            to="/suppliers"
-            className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
-              isActive('/suppliers')
-                ? 'bg-amber-600 text-white font-bold shadow-md'
-                : 'hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <i className={`fas fa-hammer text-sm w-4 ${isActive('/suppliers') ? 'text-white' : 'text-slate-400'}`}></i>
-            <span>Artisans & Foundries</span>
           </NavLink>
 
           {/* Customer CRM */}
@@ -338,17 +327,6 @@ export default function Sidebar({ isOpen, onClose }) {
           >
             <i className={`fas fa-cog text-sm w-4 ${isActive('/settings') ? 'text-white' : 'text-slate-400'}`}></i>
             <span>Settings</span>
-          </NavLink>
-          <NavLink
-            to="/audit"
-            className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
-              isActive('/audit')
-                ? 'bg-amber-600 text-white font-bold shadow-md'
-                : 'hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <i className={`fas fa-shield-alt text-sm w-4 ${isActive('/audit') ? 'text-white' : 'text-slate-400'}`}></i>
-            <span>Audit Trail</span>
           </NavLink>
 
           {/* Permissions and Credits */}

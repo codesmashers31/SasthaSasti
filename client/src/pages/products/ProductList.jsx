@@ -3400,7 +3400,7 @@ export default function ProductList() {
                       type="text"
                       value={sheetSearch}
                       onChange={(e) => setSheetSearch(e.target.value)}
-                      placeholder="Search product name, SKU, barcode..."
+                      placeholder="Search product name, SKU..."
                       className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
@@ -3428,7 +3428,7 @@ export default function ProductList() {
                       <th className="py-3 px-3 text-center">#</th>
                       <th className="py-3 px-4 min-w-[200px]">Product & SKU</th>
                       <th className="py-3 px-3 text-center min-w-[120px]">
-                        <i className="fas fa-barcode mr-1 text-slate-500"></i>Barcode
+                        Status
                       </th>
                       <th className="py-3 px-3 min-w-[110px]">Category</th>
                       <th className="py-3 px-3 text-right min-w-[110px]">Piece Rate</th>
@@ -3496,9 +3496,7 @@ export default function ProductList() {
                               </div>
                             </td>
                             <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-bold text-[11px] bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
-                                <i className="fas fa-barcode text-slate-500"></i> {p.barcode || '—'}
-                              </span>
+                              {statusBadge}
                             </td>
                             <td className="py-3 px-3">
                               <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">

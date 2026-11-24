@@ -74,19 +74,9 @@ export default function SettingsPage() {
         <div className="flex gap-2 bg-slate-100 p-1 rounded-xl text-xs font-bold">
           <button
             onClick={() => setActiveTab('company')}
-            className={`px-4 py-2 rounded-lg transition ${
-              activeTab === 'company' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-            }`}
+            className="px-4 py-2 rounded-lg transition bg-white text-slate-900 shadow-xs"
           >
             Store Configuration
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2 rounded-lg transition ${
-              activeTab === 'audit' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Forensic Audit Trail
           </button>
         </div>
       </div>
@@ -166,6 +156,48 @@ export default function SettingsPage() {
                 <option value="a4_laser">A4 Laser GST Tax Invoice</option>
               </select>
             </div>
+          </div>
+
+          <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-3 pt-4 flex items-center gap-2">
+            <i className="fab fa-whatsapp text-emerald-600 text-base"></i>
+            <span>Meta WhatsApp Cloud API (Direct Customer Messages)</span>
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">WhatsApp Phone Number ID</label>
+              <input
+                type="text"
+                value={settings.whatsapp_phone_number_id || ''}
+                onChange={(e) => setSettings({ ...settings, whatsapp_phone_number_id: e.target.value })}
+                placeholder="e.g. 109384729182374"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Company UPI ID (for QR payment)</label>
+              <input
+                type="text"
+                value={settings.company_upi_id || ''}
+                onChange={(e) => setSettings({ ...settings, company_upi_id: e.target.value })}
+                placeholder="e.g. sasthasasti@upi"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="font-bold text-slate-700 block mb-1">Meta Permanent Access Token</label>
+            <input
+              type="password"
+              value={settings.whatsapp_meta_token || ''}
+              onChange={(e) => setSettings({ ...settings, whatsapp_meta_token: e.target.value })}
+              placeholder="EAAG... (Meta Cloud API System User Token)"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Directly dispatches invoices & bills to customers' WhatsApp without requiring manual chat window opening.
+            </p>
           </div>
 
           <div className="pt-4 flex justify-end">

@@ -6,29 +6,41 @@ export default function SalesReturnCreate() {
   const navigate = useNavigate();
   const [invoiceLookupNo, setInvoiceLookupNo] = useState('');
   const [invoice, setInvoice] = useState(null);
+  const [matchedInvoices, setMatchedInvoices] = useState([]);
   const [returnItems, setReturnItems] = useState([]);
   const [refundMode, setRefundMode] = useState('cash');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const selectInvoiceForReturn = (inv) => {
+    setInvoice(inv);
+    const rawItems = inv.items || [];
+    setReturnItems(
+      rawItems.map((it) => ({
+        invoice_item_id: it._id || it.id,
+        product_id: it.product_id,
+        product_name: it.product_name || it.name,
+        billed_qty: it.quantity,
+        return_qty: 0,
+        unit_price: parseFloat(it.unit_price) || 0,
+      }))
+    );
+  };
+
   const handleLookup = async (e) => {
     e.preventDefault();
-    if (!invoiceLookupNo.trim()) return alert('Please enter an invoice number');
+    if (!invoiceLookupNo.trim()) return alert('Please enter an invoice number or customer phone number');
     try {
       setLoading(true);
       const res = await api.get(`/sales-returns/lookup/${encodeURIComponent(invoiceLookupNo.trim())}`);
-      if (res && res.invoice) {
-        setInvoice(res.invoice);
-        setReturnItems(
-          (res.items || []).map((it) => ({
-            invoice_item_id: it._id || it.id,
-            product_id: it.product_id,
-            product_name: it.product_name || it.name,
-            billed_qty: it.quantity,
-            return_qty: 0,
-            unit_price: parseFloat(it.unit_price) || 0,
-          }))
-        );
+      const inv = res.invoice || res.data;
+      if (inv) {
+        selectInvoiceForReturn(inv);
+        if (res.invoices && res.invoices.length > 1) {
+          setMatchedInvoices(res.invoices);
+        } else {
+          setMatchedInvoices([]);
+        }
       } else {
         alert('Invoice not found');
       }
@@ -107,8 +119,8 @@ export default function SalesReturnCreate() {
             type="text"
             value={invoiceLookupNo}
             onChange={(e) => setInvoiceLookupNo(e.target.value)}
-            placeholder="Enter invoice number (e.g. INV-202608-0001)..."
-            className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-900 font-mono focus:border-amber-500 outline-none"
+            placeholder="Search by Customer Phone Number (e.g. 9876543210) or Invoice Number..."
+            className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-900 font-medium focus:border-amber-500 outline-none"
           />
           <button
             type="submit"
@@ -118,6 +130,31 @@ export default function SalesReturnCreate() {
             {loading ? 'Searching...' : 'Lookup Invoice'}
           </button>
         </form>
+
+        {/* If multiple invoices matched by phone */}
+        {matchedInvoices.length > 1 && (
+          <div className="pt-2">
+            <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
+              Multiple invoices found for this phone number. Select one:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {matchedInvoices.map((inv) => (
+                <button
+                  key={inv._id || inv.id}
+                  type="button"
+                  onClick={() => selectInvoiceForReturn(inv)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                    invoice?._id === inv._id
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {inv.invoice_no} • ₹{parseFloat(inv.grand_total).toFixed(2)} ({new Date(inv.invoice_date || inv.createdAt).toLocaleDateString('en-IN')})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Step 2 & 3: Return Form (Displayed once invoice is found) */}
@@ -129,9 +166,21 @@ export default function SalesReturnCreate() {
               <i className="fas fa-boxes text-amber-600"></i> Step 2: Select Items to Return
             </h3>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between text-xs">
-              <span>Customer: <strong className="text-slate-900">{invoice.customer_name}</strong></span>
-              <span>Invoice Total: <strong className="font-mono text-slate-900">₹{parseFloat(invoice.grand_total).toFixed(2)}</strong></span>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Customer: </span>
+                <strong className="text-slate-900 font-bold">{invoice.customer_name}</strong>
+                {invoice.customer_mobile && (
+                  <span className="ml-1 px-2.5 py-0.5 rounded-md bg-amber-100/70 text-amber-900 border border-amber-300 font-mono text-[11px] font-bold flex items-center gap-1">
+                    <i className="fas fa-phone-alt text-[9px]"></i> {invoice.customer_mobile}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span>Invoice: <strong className="font-mono text-amber-800">{invoice.invoice_no}</strong></span>
+                <span className="text-slate-300">•</span>
+                <span>Total: <strong className="font-mono text-slate-900">₹{parseFloat(invoice.grand_total).toFixed(2)}</strong></span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">

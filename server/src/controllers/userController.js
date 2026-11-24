@@ -3,6 +3,32 @@ import Role from '../models/Role.js';
 import Department from '../models/Department.js';
 import Permission from '../models/Permission.js';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
+
+const findRole = async (roleIdentifier) => {
+  if (!roleIdentifier) return null;
+  const conditions = [];
+  if (mongoose.Types.ObjectId.isValid(roleIdentifier) && String(new mongoose.Types.ObjectId(roleIdentifier)) === String(roleIdentifier)) {
+    conditions.push({ _id: roleIdentifier });
+  }
+  const num = Number(roleIdentifier);
+  if (!isNaN(num)) conditions.push({ legacyId: num });
+  if (typeof roleIdentifier === 'string') conditions.push({ slug: roleIdentifier });
+  if (conditions.length === 0) return null;
+  return await Role.findOne({ $or: conditions });
+};
+
+const findDepartment = async (deptIdentifier) => {
+  if (!deptIdentifier) return null;
+  const conditions = [];
+  if (mongoose.Types.ObjectId.isValid(deptIdentifier) && String(new mongoose.Types.ObjectId(deptIdentifier)) === String(deptIdentifier)) {
+    conditions.push({ _id: deptIdentifier });
+  }
+  const num = Number(deptIdentifier);
+  if (!isNaN(num)) conditions.push({ legacyId: num });
+  if (conditions.length === 0) return null;
+  return await Department.findOne({ $or: conditions });
+};
 
 export const getUsers = async (req, res) => {
   try {
@@ -17,8 +43,8 @@ export const createUser = async (req, res) => {
   try {
     const { name, username, email, mobile, password, role_id, department_id } = req.body;
     
-    const role = await Role.findOne({ $or: [{ _id: role_id }, { legacyId: role_id }] });
-    const dept = await Department.findOne({ $or: [{ _id: department_id }, { legacyId: department_id }] });
+    const role = await findRole(role_id);
+    const dept = await findDepartment(department_id);
 
     const hashedPassword = await bcrypt.hash(password || 'admin123', 10);
     const count = await User.countDocuments();
@@ -54,10 +80,19 @@ export const updateUser = async (req, res) => {
     }
 
     if (updates.role_id) {
-      const role = await Role.findOne({ $or: [{ _id: updates.role_id }, { legacyId: updates.role_id }] });
+      const role = await findRole(updates.role_id);
       if (role) {
         updates.role_slug = role.slug;
         updates.role_name = role.name;
+        updates.role_id = role.legacyId || updates.role_id;
+      }
+    }
+
+    if (updates.department_id) {
+      const dept = await findDepartment(updates.department_id);
+      if (dept) {
+        updates.department_name = dept.name;
+        updates.department_id = dept.legacyId || updates.department_id;
       }
     }
 
@@ -118,7 +153,7 @@ export const getPermissions = async (req, res) => {
 export const updateRolePermissions = async (req, res) => {
   try {
     const { permissions } = req.body;
-    const role = await Role.findById(req.params.id);
+    const role = await findRole(req.params.id);
     if (!role) return res.status(404).json({ success: false, message: 'Role not found' });
 
     role.permissions = permissions;

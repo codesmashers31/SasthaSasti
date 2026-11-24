@@ -29,6 +29,8 @@ export const getDashboardStats = async (req, res) => {
     let periodInvoicesCount = 0;
     let onlineSales = 0;
     let onlineOrdersCount = 0;
+    let onlineMonthSales = 0;
+    let onlineMonthOrdersCount = 0;
     let totalTax = 0;
 
     allInvoices.forEach(inv => {
@@ -45,6 +47,10 @@ export const getDashboardStats = async (req, res) => {
       if (invDate >= firstDayOfMonth) {
         monthSales += gTotal;
         monthInvoicesCount++;
+        if (inv.sales_mode === 'online') {
+          onlineMonthSales += gTotal;
+          onlineMonthOrdersCount++;
+        }
       }
       if (invDate >= startDate && invDate <= endDate) {
         periodSales += gTotal;
@@ -248,6 +254,9 @@ export const getDashboardStats = async (req, res) => {
         onlineSales,
         onlineOrdersCount,
         onlinePercent: totalSales > 0 ? Math.round((onlineSales / totalSales) * 100) : 0,
+        onlineMonthSales,
+        onlineMonthOrdersCount,
+        onlineMonthPercent: monthSales > 0 ? Math.round((onlineMonthSales / monthSales) * 100) : 0,
         totalTax,
         lowStockCount: lowStockProducts.length,
         lowStockProducts: lowStockProducts.slice(0, 5),

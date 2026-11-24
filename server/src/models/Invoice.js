@@ -34,6 +34,8 @@ const invoiceSchema = new mongoose.Schema({
   round_off: { type: Number, default: 0 },
   grand_total: { type: Number, required: true, default: 0 },
   paid_amount: { type: Number, default: 0 },
+  tendered_amount: { type: Number, default: 0 },
+  change_amount: { type: Number, default: 0 },
   balance_amount: { type: Number, default: 0 },
   payment_status: { type: String, default: 'paid' },
   payment_method: { type: String, default: 'cash' },

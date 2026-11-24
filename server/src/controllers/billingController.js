@@ -171,8 +171,10 @@ export const checkout = async (req, res) => {
     const grandTotal = Math.round(rawTotal);
     const roundOff = Math.round((grandTotal - rawTotal) * 100) / 100;
 
-    const actualPaid = parseFloat(paid_amount) || grandTotal;
-    const balanceAmount = Math.max(0, grandTotal - actualPaid);
+    const tenderedAmount = parseFloat(req.body.tendered_amount) || parseFloat(paid_amount) || grandTotal;
+    const changeAmount = parseFloat(req.body.change_amount) || Math.max(0, Math.round((tenderedAmount - grandTotal) * 100) / 100);
+    const actualPaid = Math.min(grandTotal, tenderedAmount);
+    const balanceAmount = Math.max(0, Math.round((grandTotal - actualPaid) * 100) / 100);
     const paymentStatus = balanceAmount === 0 ? 'paid' : (actualPaid > 0 ? 'partial' : 'unpaid');
 
     const invoice = await Invoice.create({
@@ -192,6 +194,8 @@ export const checkout = async (req, res) => {
       round_off: roundOff,
       grand_total: grandTotal,
       paid_amount: actualPaid,
+      tendered_amount: tenderedAmount,
+      change_amount: changeAmount,
       balance_amount: balanceAmount,
       payment_status: paymentStatus,
       payment_method,
@@ -253,9 +257,10 @@ export const checkout = async (req, res) => {
       await customerDoc.save();
     }
 
-    // WhatsApp Message URL creation
+    // WhatsApp Message URL & Meta Cloud API Direct Sending
     const cleanPhone = (customerDoc.mobile || '').replace(/\D/g, '');
     let whatsappUrl = null;
+    let metaSent = false;
     if (cleanPhone && cleanPhone.length >= 10) {
       const companyDoc = await Setting.findOne({ key: 'company_name' });
       const rawCompany = companyDoc?.value?.trim();
@@ -264,8 +269,36 @@ export const checkout = async (req, res) => {
         : 'Sastha Sasti Enterprises';
 
       const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone.slice(-10)}`;
-      const message = `🙏 *${companyName}*\nThank you for your purchase, *${customerDoc.name}*!\n\n🧾 *Invoice:* ${invoiceNo}\n📅 *Date:* ${today}\n💰 *Total Amount:* ₹${grandTotal.toLocaleString('en-IN')}\n💳 *Paid:* ₹${actualPaid.toLocaleString('en-IN')}\n${balanceAmount > 0 ? `⚠️ *Due Balance:* ₹${balanceAmount.toLocaleString('en-IN')}\n` : ''}\nThank you for choosing ${companyName}! ✨`;
+      const message = `🙏 *${companyName}*\nThank you for your purchase, *${customerDoc.name}*!\n\n🧾 *Invoice:* ${invoiceNo}\n📅 *Date:* ${today}\n💰 *Total Amount:* ₹${grandTotal.toLocaleString('en-IN')}\n💵 *Paid:* ₹${actualPaid.toLocaleString('en-IN')}\n${changeAmount > 0 ? `🔄 *Change Returned:* ₹${changeAmount.toLocaleString('en-IN')}\n` : ''}${balanceAmount > 0 ? `⚠️ *Due Balance:* ₹${balanceAmount.toLocaleString('en-IN')}\n` : ''}\nThank you for choosing ${companyName}! ✨`;
       whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+
+      // Attempt direct Meta WhatsApp Cloud API sending if token configured
+      const metaTokenDoc = await Setting.findOne({ key: 'whatsapp_meta_token' });
+      const metaPhoneDoc = await Setting.findOne({ key: 'whatsapp_phone_number_id' });
+      const metaToken = process.env.META_WHATSAPP_TOKEN || metaTokenDoc?.value?.trim();
+      const metaPhoneId = process.env.META_WHATSAPP_PHONE_NUMBER_ID || metaPhoneDoc?.value?.trim();
+
+      if (metaToken && metaPhoneId) {
+        try {
+          const metaRes = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: formattedPhone,
+              type: 'text',
+              text: { preview_url: false, body: message }
+            })
+          });
+          const metaData = await metaRes.json();
+          if (metaData && !metaData.error) metaSent = true;
+        } catch (e) {
+          console.error('Meta WhatsApp Cloud API error:', e.message);
+        }
+      }
     }
 
     await ActivityLog.create({
@@ -282,6 +315,7 @@ export const checkout = async (req, res) => {
       message: 'Invoice created successfully!',
       invoice,
       whatsappUrl,
+      metaSent,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
