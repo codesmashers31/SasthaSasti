@@ -1492,7 +1492,18 @@ export default function ProductList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredSuppliers.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse border-b border-slate-50">
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-28 mb-1"></div><div className="h-3 bg-slate-100 rounded w-16"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                      <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-20"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                      <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-14"></div></td>
+                      <td className="py-4 px-4"><div className="h-6 bg-slate-200 rounded-lg w-16 ml-auto"></div></td>
+                    </tr>
+                  ))
+                ) : filteredSuppliers.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="py-12 text-center text-slate-400">
                       <i className="fas fa-truck text-3xl mb-2 text-slate-300 block"></i>
@@ -1766,7 +1777,20 @@ export default function ProductList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-100 bg-white">
-                {filteredProducts.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse border-b border-amber-50">
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-32 mb-1"></div><div className="h-3 bg-slate-100 rounded w-20"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-24 mb-1"></div><div className="h-3 bg-slate-100 rounded w-16"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                      <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-16 mx-auto"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-24 ml-auto"></div></td>
+                      <td className="py-4 px-4"><div className="h-4 bg-slate-200 rounded w-8 mx-auto"></div></td>
+                      <td className="py-4 px-4"><div className="h-5 bg-slate-200 rounded-full w-14 mx-auto"></div></td>
+                      <td className="py-4 px-4"><div className="h-6 bg-slate-200 rounded-lg w-16 ml-auto"></div></td>
+                    </tr>
+                  ))
+                ) : filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="py-12 text-center text-amber-400">
                       <i className="fas fa-box-open text-3xl mb-3 block text-amber-300"></i>
@@ -3266,6 +3290,11 @@ export default function ProductList() {
 
         const filteredSoldUnits = filteredProds.reduce((sum, p) => sum + (parseInt(p.total_sold_qty) || 0), 0);
         const filteredStockUnits = filteredProds.reduce((sum, p) => sum + (parseInt(p.current_stock) || 0), 0);
+        const filteredStockTotal = filteredProds.reduce((sum, p) => {
+          const st = parseInt(p.current_stock) || 0;
+          const sp = parseFloat(p.selling_price) || 0;
+          return sum + (st * sp);
+        }, 0);
         const filteredInvert = filteredProds.reduce((sum, p) => {
           const bought = parseInt(p.total_purchased_qty || (parseInt(p.current_stock) || 0) + (parseInt(p.total_sold_qty) || 0)) || (parseInt(p.current_stock) || 0);
           const pr = parseFloat(p.piece_rate || p.purchase_price) || 0;
@@ -3407,7 +3436,7 @@ export default function ProductList() {
                       <th className="py-3 px-3 text-right min-w-[110px]">Selling Price</th>
                       <th className="py-3 px-2 text-center min-w-[80px]">Sold</th>
                       <th className="py-3 px-2 text-center min-w-[80px]">In Stock</th>
-                      <th className="py-3 px-3 text-center min-w-[110px]">Sales Status</th>
+                      <th className="py-3 px-3 text-right min-w-[120px]">Total Stock Value</th>
                       <th className="py-3 px-3 text-right min-w-[130px]">Total Investment</th>
                       <th className="py-3 px-3 text-right min-w-[130px]">Total Sold Value</th>
                     </tr>
@@ -3498,7 +3527,9 @@ export default function ProductList() {
                                 {stock}
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-center whitespace-nowrap">{statusBadge}</td>
+                            <td className="py-3 px-3 font-mono font-black text-emerald-700 text-right whitespace-nowrap">
+                              ₹{(sellingPrice * stock).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
                             <td className="py-3 px-3 font-mono font-black text-amber-900 text-right whitespace-nowrap">
                               ₹{invert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
@@ -3521,7 +3552,9 @@ export default function ProductList() {
                       <td className="py-3 px-2 text-center font-mono font-black text-amber-900 text-xs bg-amber-50 whitespace-nowrap">
                         {filteredStockUnits} In Stock
                       </td>
-                      <td className="py-3 px-3 text-center text-xs text-slate-400">—</td>
+                      <td className="py-3 px-3 text-right font-mono font-black text-emerald-800 text-xs bg-emerald-50 whitespace-nowrap">
+                        ₹{filteredStockTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-amber-900 text-xs bg-amber-50 whitespace-nowrap">
                         ₹{filteredInvert.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>

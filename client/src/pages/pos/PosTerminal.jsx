@@ -63,6 +63,7 @@ export default function PosTerminal() {
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [completedInvoice, setCompletedInvoice] = useState(null);
   const [whatsappShareUrl, setWhatsappShareUrl] = useState('');
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Settings
   const [upiId, setUpiId] = useState('sasthasasti@sbi');
@@ -199,9 +200,20 @@ export default function PosTerminal() {
   // Cart Management
   const addToCart = (product) => {
     const prodId = product.legacyId || product._id;
+    const totalStock = parseInt(product.current_stock) || 0;
+
+    if (totalStock <= 0) {
+      alert(`"${product.name}" is out of stock!`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.product_id === prodId || item.code === product.code || item.sku === product.sku);
       if (existing) {
+        if (existing.quantity >= totalStock) {
+          alert(`Cannot add more. Only ${totalStock} available in stock for "${product.name}".`);
+          return prev;
+        }
         return prev.map((item) =>
           item === existing ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -217,7 +229,7 @@ export default function PosTerminal() {
           quantity: 1,
           discount_percent: parseFloat(product.discount_percent) || 0,
           tax_percent: parseFloat(product.gst_percent) || 0,
-          current_stock: parseInt(product.current_stock) || 0,
+          current_stock: totalStock,
         },
       ];
     });
@@ -229,6 +241,10 @@ export default function PosTerminal() {
         .map((item, i) => {
           if (i === idx) {
             const newQty = item.quantity + delta;
+            if (delta > 0 && newQty > item.current_stock) {
+              alert(`Cannot exceed available stock (${item.current_stock}) for "${item.name}".`);
+              return item;
+            }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
@@ -414,16 +430,31 @@ export default function PosTerminal() {
   };
 
   // Checkout Execution
-  const processCheckout = async () => {
+  const processCheckout = async (directMode = null) => {
+    if (!cart.length) {
+      alert('Billing Cart is empty! Please add statues or items first.');
+      return;
+    }
+    if (isCheckingOut) return;
+
     try {
+      setIsCheckingOut(true);
+
+      const chosenReceiptMode = directMode === 'whatsapp' ? 'whatsapp' : (directMode === 'thermal' ? 'thermal' : receiptMode);
+      const isDirect = directMode === 'thermal' || directMode === 'whatsapp';
+
       const checkedCount = (payMethodCash ? 1 : 0) + (payMethodCard ? 1 : 0) + (payMethodUpi ? 1 : 0);
-      const primaryMethod = checkedCount > 1
+      const primaryMethod = isDirect
+        ? 'cash'
+        : checkedCount > 1
         ? 'split'
         : payMethodUpi
         ? 'upi'
         : payMethodCard
         ? 'card'
         : 'cash';
+
+      const paidAmount = isDirect ? grandTotal : totalAmountPaid;
 
       const payload = {
         customer_name: customerName.trim() || 'Anonymous User',
@@ -434,8 +465,8 @@ export default function PosTerminal() {
         bill_gst_percent: activeTaxRate,
         sales_mode: salesMode,
         payment_method: primaryMethod,
-        paid_amount: totalAmountPaid,
-        receipt_mode: receiptMode,
+        paid_amount: paidAmount,
+        receipt_mode: chosenReceiptMode,
         notes: invoiceNotes,
       };
 
@@ -455,20 +486,32 @@ export default function PosTerminal() {
 
         // Refresh stock catalog
         fetchInitialData();
+
+        if (directMode === 'thermal' || chosenReceiptMode === 'thermal' || chosenReceiptMode === 'both') {
+          setTimeout(() => {
+            printThermalReceipt(res.invoice);
+          }, 400);
+        }
+        if (directMode === 'whatsapp' && res.whatsappUrl) {
+          window.open(res.whatsappUrl, '_blank');
+        }
       }
     } catch (err) {
-      alert(err.message || 'Checkout failed. Please check inputs.');
+      alert(err.message || 'Checkout failed. Please check inputs or server connection.');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
   // Print Thermal 80mm (Exact match to C:\xampp\htdocs\billing\billingsoftwaregod\app\Views\billing\print-thermal.php)
-  const printThermalReceipt = () => {
-    if (!completedInvoice) return;
+  const printThermalReceipt = (inv = null) => {
+    const targetInvoice = inv || completedInvoice;
+    if (!targetInvoice) return;
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (!printWindow) return alert('Please allow popups to print receipt.');
 
-    const dateStr = new Date(completedInvoice.created_at || Date.now()).toLocaleString('en-IN');
-    const itemsTableRows = (completedInvoice.items || []).map((it) => `
+    const dateStr = new Date(targetInvoice.created_at || Date.now()).toLocaleString('en-IN');
+    const itemsTableRows = (targetInvoice.items || []).map((it) => `
       <tr>
         <td style="padding: 3px 0;">${it.name || it.product_name}</td>
         <td style="padding: 3px 0; text-align: center;">${it.quantity}</td>
@@ -477,19 +520,19 @@ export default function PosTerminal() {
       </tr>
     `).join('');
 
-    const subtotal = parseFloat(completedInvoice.subtotal || 0).toFixed(2);
-    const discount = parseFloat(completedInvoice.discount_amount || 0).toFixed(2);
-    const tax = parseFloat(completedInvoice.tax_amount || 0).toFixed(2);
-    const grandTotal = parseFloat(completedInvoice.grand_total || 0).toFixed(2);
-    const paidAmount = parseFloat(completedInvoice.paid_amount || completedInvoice.grand_total || 0).toFixed(2);
-    const payMethod = (completedInvoice.payment_method || 'CASH').toUpperCase();
-    const sMode = (completedInvoice.sales_mode || salesMode || 'OFFLINE').toUpperCase();
+    const subtotal = parseFloat(targetInvoice.subtotal || 0).toFixed(2);
+    const discount = parseFloat(targetInvoice.overall_discount_amount || targetInvoice.item_discount_total || 0).toFixed(2);
+    const tax = parseFloat(targetInvoice.tax_total || targetInvoice.taxable_amount || 0).toFixed(2);
+    const grandTotal = parseFloat(targetInvoice.grand_total || 0).toFixed(2);
+    const paidAmount = parseFloat(targetInvoice.paid_amount || targetInvoice.grand_total || 0).toFixed(2);
+    const payMethod = (targetInvoice.payment_method || 'CASH').toUpperCase();
+    const sMode = (targetInvoice.sales_mode || salesMode || 'OFFLINE').toUpperCase();
     const roundOff = (parseFloat(grandTotal) - (parseFloat(subtotal) - parseFloat(discount) + parseFloat(tax))).toFixed(2);
 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Thermal Receipt ${completedInvoice.invoice_no}</title>
+          <title>Thermal Receipt ${targetInvoice.invoice_no}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             body { font-family: monospace, Courier, monospace; font-size: 11px; line-height: 1.25; width: 72mm; margin: 0 auto; padding: 8px; color: #000; background: #fff; }
@@ -514,10 +557,10 @@ export default function PosTerminal() {
           </div>
 
           <div style="padding: 6px 0; border-bottom: 1px dashed #000; font-size: 10px; line-height: 1.4;">
-            <div class="flex-between"><span>Bill No:</span><strong>${completedInvoice.invoice_no}</strong></div>
+            <div class="flex-between"><span>Bill No:</span><strong>${targetInvoice.invoice_no}</strong></div>
             <div class="flex-between"><span>Date/Time:</span><span>${dateStr}</span></div>
-            <div class="flex-between"><span>Customer:</span><span class="bold">${completedInvoice.customer_name || 'Walk-in Retail Customer'}</span></div>
-            <div class="flex-between"><span>Customer Mobile:</span><strong style="letter-spacing: 0.5px;">${completedInvoice.customer_mobile || 'N/A'}</strong></div>
+            <div class="flex-between"><span>Customer:</span><span class="bold">${targetInvoice.customer_name || 'Walk-in Retail Customer'}</span></div>
+            <div class="flex-between"><span>Customer Mobile:</span><strong style="letter-spacing: 0.5px;">${targetInvoice.customer_mobile || 'N/A'}</strong></div>
           </div>
 
           <!-- Items Table -->
@@ -688,10 +731,27 @@ export default function PosTerminal() {
           className="flex-1 overflow-y-auto pt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 pr-1 content-start pb-4"
         >
           {loading ? (
-            <div className="col-span-full py-16 text-center text-slate-400">
-              <i className="fas fa-spinner fa-spin text-2xl text-amber-600 mb-2"></i>
-              <p className="text-xs">Loading holy statue catalog...</p>
-            </div>
+            Array.from({ length: 9 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[144px] rounded-2xl p-3.5 bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between animate-pulse"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-5 w-16 bg-slate-200 rounded-md"></div>
+                    <div className="h-5 w-20 bg-slate-100 rounded-full"></div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="h-3.5 bg-slate-200 rounded-md w-4/5"></div>
+                    <div className="h-3 bg-slate-100 rounded-md w-3/5"></div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="h-5 w-20 bg-slate-200 rounded-md"></div>
+                  <div className="h-7 w-7 bg-amber-100 rounded-lg"></div>
+                </div>
+              </div>
+            ))
           ) : products.length === 0 ? (
             <div className="col-span-full py-16 text-center text-slate-400">
               <i className="fas fa-box-open text-3xl mb-2 text-slate-300"></i>
@@ -700,9 +760,14 @@ export default function PosTerminal() {
             </div>
           ) : (
             products.map((p) => {
-              const stock = parseInt(p.current_stock) || 0;
-              const isOutOfStock = stock <= 0;
-              const isYellowWarning = !isOutOfStock && stock <= 2;
+              const totalStock = parseInt(p.current_stock) || 0;
+              const cartItem = cart.find(
+                (it) => it.product_id === (p.legacyId || p._id) || (it.sku && it.sku === p.sku) || (it.code && it.code === p.code)
+              );
+              const inCartQty = cartItem ? cartItem.quantity : 0;
+              const remainingStock = Math.max(0, totalStock - inCartQty);
+              const isOutOfStock = remainingStock <= 0;
+              const isYellowWarning = !isOutOfStock && remainingStock <= 2;
               const codeDisplay = p.code || p.sku;
 
               return (
@@ -711,7 +776,9 @@ export default function PosTerminal() {
                   onClick={() => addToCart(p)}
                   className={`pos-product-card h-[144px] ${
                     isOutOfStock
-                      ? 'pos-card-out-of-stock cursor-pointer shadow-xs'
+                      ? inCartQty > 0
+                        ? 'bg-amber-50/50 border border-amber-300 hover:border-amber-400 hover:shadow-md cursor-pointer'
+                        : 'pos-card-out-of-stock cursor-not-allowed shadow-xs'
                       : isYellowWarning
                       ? 'yellow-blink-warning cursor-pointer shadow-xs'
                       : 'bg-white border border-slate-100 hover:border-amber-300 hover:shadow-md cursor-pointer'
@@ -721,8 +788,10 @@ export default function PosTerminal() {
                     <div className="flex items-center justify-between gap-1">
                       <span
                         className={`pos-code-badge text-[10px] font-bold ${
-                          isOutOfStock
+                          isOutOfStock && inCartQty === 0
                             ? 'text-red-800 bg-red-100 border-red-300'
+                            : inCartQty > 0
+                            ? 'text-amber-900 bg-amber-100 border-amber-300'
                             : isYellowWarning
                             ? 'text-amber-900 bg-amber-100 border-amber-300'
                             : 'text-amber-700 bg-[#fff8ef] border-amber-200'
@@ -731,24 +800,28 @@ export default function PosTerminal() {
                         {codeDisplay}
                       </span>
 
-                      {isOutOfStock ? (
+                      {inCartQty > 0 ? (
+                        <span className="pos-stock-badge bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-700 shadow-xs whitespace-nowrap shrink-0 flex items-center gap-1">
+                          <i className="fas fa-shopping-cart text-[9px]"></i> {inCartQty} in Bill {remainingStock === 0 ? '(Max)' : `• ${remainingStock} left`}
+                        </span>
+                      ) : isOutOfStock ? (
                         <span className="pos-stock-badge bg-red-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-red-700 shadow-xs whitespace-nowrap shrink-0 flex items-center gap-1">
                           <i className="fas fa-ban text-[9px]"></i> Out of Stock
                         </span>
                       ) : isYellowWarning ? (
                         <span className="pos-stock-badge yellow-blink-badge text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-600 shadow-xs whitespace-nowrap shrink-0 flex items-center gap-1">
-                          <i className="fas fa-exclamation-triangle text-[9px]"></i> Only {stock} left!
+                          <i className="fas fa-exclamation-triangle text-[9px]"></i> Only {remainingStock} left!
                         </span>
                       ) : (
                         <span className="pos-stock-badge bg-[#f0fdf4] text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full border border-[#bbf7d0] whitespace-nowrap shrink-0">
-                          {stock} in stock
+                          {remainingStock} in stock
                         </span>
                       )}
                     </div>
 
                     <h4
                       className={`pos-prod-title text-[13px] font-extrabold ${
-                        isOutOfStock
+                        isOutOfStock && inCartQty === 0
                           ? 'text-red-950'
                           : isYellowWarning
                           ? 'text-amber-950 font-black'
@@ -764,7 +837,7 @@ export default function PosTerminal() {
                       <span className="text-[10px] text-slate-400 font-medium">Rate:</span>
                       <span
                         className={`pos-price-val text-[14px] font-black ${
-                          isOutOfStock
+                          isOutOfStock && inCartQty === 0
                             ? 'text-red-900'
                             : isYellowWarning
                             ? 'text-amber-900 font-black'
@@ -779,13 +852,19 @@ export default function PosTerminal() {
                       type="button"
                       className={`pos-add-btn w-7 h-7 rounded-lg ${
                         isOutOfStock
-                          ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer shadow-sm'
+                          ? inCartQty > 0
+                            ? 'bg-amber-600 text-white hover:bg-amber-700 font-bold cursor-pointer'
+                            : 'bg-red-600 text-white hover:bg-red-700 cursor-not-allowed shadow-sm'
                           : isYellowWarning
                           ? 'bg-amber-500 text-slate-950 hover:bg-amber-600 font-bold cursor-pointer'
                           : 'bg-[#fef3c7] text-amber-700 group-hover:bg-amber-500 group-hover:text-white cursor-pointer'
                       } flex items-center justify-center transition-all shadow-sm`}
                     >
-                      <i className="fas fa-plus text-xs"></i>
+                      {inCartQty > 0 && remainingStock === 0 ? (
+                        <i className="fas fa-check text-xs"></i>
+                      ) : (
+                        <i className="fas fa-plus text-xs"></i>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1023,22 +1102,60 @@ export default function PosTerminal() {
             </span>
           </div>
 
-          {/* Action Buttons: Hold / Complete Bill */}
-          <div className="grid grid-cols-3 gap-2 pt-1">
+          {/* Action Buttons: Direct Print / WhatsApp Bill / Hold / Complete Bill */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
+              disabled={isCheckingOut || !cart.length}
+              onClick={() => processCheckout('thermal')}
+              title="Instant Cash Checkout & Print Receipt"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              {isCheckingOut ? (
+                <i className="fas fa-circle-notch fa-spin text-xs"></i>
+              ) : (
+                <i className="fas fa-print text-xs"></i>
+              )}
+              <span className="truncate">Direct Print</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isCheckingOut || !cart.length}
+              onClick={() => processCheckout('whatsapp')}
+              title="Instant Cash Checkout & Share on WhatsApp"
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              {isCheckingOut ? (
+                <i className="fas fa-circle-notch fa-spin text-xs"></i>
+              ) : (
+                <i className="fab fa-whatsapp text-sm"></i>
+              )}
+              <span className="truncate">WhatsApp Bill</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isCheckingOut || !cart.length}
               onClick={holdCurrentBill}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
             >
               <i className="fas fa-pause text-amber-600"></i> Hold [F9]
             </button>
+
             <button
               type="button"
               id="btn-pos-pay"
+              disabled={isCheckingOut || !cart.length}
               onClick={openPaymentModal}
-              className="col-span-2 gold-btn font-extrabold py-2.5 rounded-xl text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="gold-btn font-extrabold py-2 px-2 rounded-xl text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              <i className="fas fa-check-circle"></i> Complete Bill [F8]
+              {isCheckingOut ? (
+                <i className="fas fa-circle-notch fa-spin text-xs"></i>
+              ) : (
+                <i className="fas fa-check-circle text-xs"></i>
+              )}
+              <span className="truncate">Complete [F8]</span>
             </button>
           </div>
         </div>
@@ -1474,10 +1591,19 @@ export default function PosTerminal() {
                 </button>
                 <button
                   type="button"
-                  onClick={processCheckout}
-                  className="gold-btn px-6 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2 cursor-pointer"
+                  disabled={isCheckingOut}
+                  onClick={() => processCheckout()}
+                  className="gold-btn px-6 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <i className="fas fa-check-circle"></i> Complete Transaction
+                  {isCheckingOut ? (
+                    <>
+                      <i className="fas fa-circle-notch fa-spin"></i> Processing Bill...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check-circle"></i> Complete Transaction
+                    </>
+                  )}
                 </button>
               </div>
             </div>

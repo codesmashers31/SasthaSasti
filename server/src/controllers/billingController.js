@@ -76,12 +76,18 @@ export const checkout = async (req, res) => {
 
     for (const item of items) {
       let prod = null;
-      if (item.product_id && isMongoId(item.product_id)) {
-        prod = await Product.findById(item.product_id);
-      } else if (item.product_id && !isNaN(item.product_id)) {
-        prod = await Product.findOne({ legacyId: Number(item.product_id) });
-      } else if (item.sku) {
-        prod = await Product.findOne({ sku: item.sku });
+      const itemId = item.product_id || item.id || item._id;
+      if (itemId && isMongoId(itemId)) {
+        prod = await Product.findById(itemId);
+      } else if (itemId && !isNaN(itemId)) {
+        prod = await Product.findOne({ legacyId: Number(itemId) });
+      } else if (item.sku || item.code || item.barcode) {
+        prod = await Product.findOne({
+          $or: [
+            { sku: item.sku || item.code },
+            { barcode: item.barcode || item.code || item.sku },
+          ]
+        });
       }
 
       if (!prod) continue;
@@ -144,6 +150,10 @@ export const checkout = async (req, res) => {
         notes: `POS Sale invoice #${invoiceNo}`,
         created_by: req.user ? req.user.legacyId || 1 : 1,
       });
+    }
+
+    if (!validatedItems.length) {
+      return res.status(400).json({ success: false, message: 'No valid products found in cart to bill.' });
     }
 
     // Bill-level discount calculation
@@ -244,7 +254,7 @@ export const checkout = async (req, res) => {
     }
 
     // WhatsApp Message URL creation
-    const cleanPhone = customerDoc.mobile.replace(/\D/g, '');
+    const cleanPhone = (customerDoc.mobile || '').replace(/\D/g, '');
     let whatsappUrl = null;
     if (cleanPhone && cleanPhone.length >= 10) {
       const companyDoc = await Setting.findOne({ key: 'company_name' });

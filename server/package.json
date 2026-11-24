@@ -7,7 +7,7 @@
   "scripts": {
     "build": "echo Backend ready",
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "dev": "node --watch --watch-path=src src/server.js",
     "migrate": "node src/scripts/migrateFromSql.js",
     "test:e2e": "node src/scripts/testE2E.js",
     "seed": "node src/scripts/seedDefaultData.js"
