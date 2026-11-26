@@ -135,8 +135,8 @@ export default function PosTerminal() {
     try {
       setLoading(true);
       const [prodRes, catRes] = await Promise.all([
-        api.get('/products/search/pos'),
-        api.get('/categories'),
+        api.get('/products/search/pos', { skipCache: true }),
+        api.get('/categories', { skipCache: true }),
       ]);
       if (prodRes && prodRes.data) setProducts(prodRes.data);
       if (catRes && catRes.data) setCategories(catRes.data);
@@ -167,7 +167,7 @@ export default function PosTerminal() {
     setSearchQuery(query);
     try {
       const resolvedCatId = catId === 'all' || !catId ? '' : catId;
-      const res = await api.get(`/products/search/pos?q=${encodeURIComponent(query)}&category_id=${resolvedCatId}`);
+      const res = await api.get(`/products/search/pos?q=${encodeURIComponent(query)}&category_id=${resolvedCatId}`, { skipCache: true });
       if (res && res.data) setProducts(res.data);
     } catch (err) {
       console.error(err);
@@ -221,8 +221,9 @@ export default function PosTerminal() {
         ...prev,
         {
           product_id: prodId,
-          code: product.code || product.sku,
+          code: product.barcode || product.code || product.sku,
           sku: product.sku || product.code,
+          barcode: product.barcode || '',
           name: product.name,
           unit_price: parseFloat(product.selling_price) || 0,
           quantity: 1,
@@ -266,16 +267,24 @@ export default function PosTerminal() {
   const discountVal = parseFloat(overallDiscount) || 0;
   const taxableBase = Math.max(0, subtotal - discountVal);
 
-  let activeTaxRate = 12;
+  let activeTaxRate = 0;
+  let taxAmount = 0;
   if (taxPreset === 'custom') {
     activeTaxRate = parseFloat(customTaxRate) || 0;
+    taxAmount = Math.round(((taxableBase * activeTaxRate) / 100) * 100) / 100;
   } else if (taxPreset === 'item') {
-    activeTaxRate = 12; // default avg
+    taxAmount = cart.reduce((sum, item) => {
+      const itemGross = item.quantity * item.unit_price;
+      const itemTaxPct = parseFloat(item.tax_percent) || 0;
+      return sum + (itemGross * itemTaxPct) / 100;
+    }, 0);
+    taxAmount = Math.round(taxAmount * 100) / 100;
+    activeTaxRate = taxableBase > 0 ? Math.round((taxAmount / taxableBase) * 1000) / 10 : 0;
   } else {
     activeTaxRate = parseFloat(taxPreset) || 0;
+    taxAmount = Math.round(((taxableBase * activeTaxRate) / 100) * 100) / 100;
   }
 
-  const taxAmount = Math.round(((taxableBase * activeTaxRate) / 100) * 100) / 100;
   const rawGrandTotal = taxableBase + taxAmount;
   const grandTotal = Math.round(rawGrandTotal);
   const roundOff = Math.round((grandTotal - rawGrandTotal) * 100) / 100;
@@ -779,7 +788,7 @@ export default function PosTerminal() {
               const remainingStock = Math.max(0, totalStock - inCartQty);
               const isOutOfStock = remainingStock <= 0;
               const isYellowWarning = !isOutOfStock && remainingStock <= 2;
-              const codeDisplay = p.code || p.sku;
+              const codeDisplay = p.barcode || p.code || p.sku;
 
               return (
                 <div
@@ -806,9 +815,11 @@ export default function PosTerminal() {
                             : isYellowWarning
                             ? 'text-amber-900 bg-amber-100 border-amber-300'
                             : 'text-amber-700 bg-[#fff8ef] border-amber-200'
-                        } px-2 py-1 rounded-md border whitespace-nowrap truncate`}
+                        } px-2 py-0.5 rounded-md border whitespace-nowrap truncate inline-flex items-center gap-1`}
+                        title={p.sku ? `SKU: ${p.sku}` : ''}
                       >
-                        {codeDisplay}
+                        <i className="fas fa-barcode text-[9px] text-amber-600"></i>
+                        <span>{codeDisplay}</span>
                       </span>
 
                       {inCartQty > 0 ? (

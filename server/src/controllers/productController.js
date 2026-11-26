@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import SubCategory from '../models/SubCategory.js';
@@ -24,7 +25,29 @@ export const getProducts = async (req, res) => {
         { barcode: { $regex: search, $options: 'i' } },
       ];
     }
-    if (category_id) filter.category_id = Number(category_id);
+    if (category_id && category_id !== 'all' && category_id !== 'undefined') {
+      const catOr = [
+        { category_id: category_id },
+        { category_name: new RegExp(`^${category_id}$`, 'i') },
+      ];
+      if (mongoose.Types.ObjectId.isValid(category_id)) {
+        catOr.push({ category_id: new mongoose.Types.ObjectId(category_id) });
+        const cDoc = await Category.findById(category_id).lean();
+        if (cDoc && cDoc.name) {
+          catOr.push({ category_name: new RegExp(`^${cDoc.name}$`, 'i') });
+        }
+      }
+      if (!isNaN(category_id)) {
+        catOr.push({ category_id: Number(category_id) });
+      }
+
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: catOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = catOr;
+      }
+    }
     if (material) filter.material = material;
     if (low_stock) {
       filter.$expr = { $lte: ['$current_stock', '$min_stock_alert'] };
@@ -70,21 +93,47 @@ export const searchForPos = async (req, res) => {
     const category_id = req.query.category_id;
 
     const filter = { status: 'active' };
-    if (category_id) filter.category_id = Number(category_id);
+
+    if (category_id && category_id !== 'all' && category_id !== 'undefined') {
+      const catOr = [
+        { category_id: category_id },
+        { category_name: new RegExp(`^${category_id}$`, 'i') },
+      ];
+      if (mongoose.Types.ObjectId.isValid(category_id)) {
+        catOr.push({ category_id: new mongoose.Types.ObjectId(category_id) });
+        const cDoc = await Category.findById(category_id).lean();
+        if (cDoc && cDoc.name) {
+          catOr.push({ category_name: new RegExp(`^${cDoc.name}$`, 'i') });
+        }
+      }
+      if (!isNaN(category_id)) {
+        catOr.push({ category_id: Number(category_id) });
+      }
+
+      filter.$or = catOr;
+    }
 
     if (q) {
-      filter.$or = [
+      const searchOr = [
         { name: { $regex: q, $options: 'i' } },
         { god_name: { $regex: q, $options: 'i' } },
         { sku: { $regex: q, $options: 'i' } },
         { barcode: { $regex: q, $options: 'i' } },
+        { code: { $regex: q, $options: 'i' } },
         { material: { $regex: q, $options: 'i' } },
       ];
+
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
     }
 
     const products = await Product.find(filter)
-      .select('sku barcode name god_name material finish_type height_inches weight_kg selling_price mrp current_stock gst_percent hsn_code images')
-      .limit(80)
+      .sort({ createdAt: -1 })
+      .limit(100)
       .lean();
 
     res.json({ success: true, data: products });
