@@ -29,4 +29,8 @@ const salesReturnSchema = new mongoose.Schema({
   items: [salesReturnItemSchema],
 }, { timestamps: true });
 
+salesReturnSchema.index({ invoice_no: 1 });
+salesReturnSchema.index({ customer_mobile: 1 });
+salesReturnSchema.index({ createdAt: -1 });
+
 export default mongoose.model('SalesReturn', salesReturnSchema);

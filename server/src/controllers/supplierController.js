@@ -32,11 +32,14 @@ export const getSuppliers = async (req, res) => {
     }
     if (payment_status) filter.payment_status = payment_status;
 
-    const total = await Supplier.countDocuments(filter);
-    const suppliers = await Supplier.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, suppliers] = await Promise.all([
+      Supplier.countDocuments(filter),
+      Supplier.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
 
     res.json({
       success: true,

@@ -20,6 +20,10 @@ const customerSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 }, { timestamps: true });
 
+customerSchema.index({ mobile: 1 });
+customerSchema.index({ customer_code: 1 });
+customerSchema.index({ status: 1 });
+customerSchema.index({ createdAt: -1 });
 customerSchema.index({ name: 'text', mobile: 'text', customer_code: 'text' });
 
 export default mongoose.model('Customer', customerSchema);

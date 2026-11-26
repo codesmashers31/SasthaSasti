@@ -36,6 +36,10 @@ const supplierSchema = new mongoose.Schema({
   products_supplied: [{ type: String }],
 }, { timestamps: true });
 
+supplierSchema.index({ mobile: 1 });
+supplierSchema.index({ supplier_code: 1 });
+supplierSchema.index({ status: 1 });
+supplierSchema.index({ createdAt: -1 });
 supplierSchema.index({ name: 'text', contact_person: 'text', supplier_code: 'text' });
 
 export default mongoose.model('Supplier', supplierSchema);

@@ -30,11 +30,14 @@ export const getProducts = async (req, res) => {
       filter.$expr = { $lte: ['$current_stock', '$min_stock_alert'] };
     }
 
-    const total = await Product.countDocuments(filter);
-    const products = await Product.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, products] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
 
     res.json({
       success: true,
@@ -81,7 +84,8 @@ export const searchForPos = async (req, res) => {
 
     const products = await Product.find(filter)
       .select('sku barcode name god_name material finish_type height_inches weight_kg selling_price mrp current_stock gst_percent hsn_code images')
-      .limit(80);
+      .limit(80)
+      .lean();
 
     res.json({ success: true, data: products });
   } catch (err) {

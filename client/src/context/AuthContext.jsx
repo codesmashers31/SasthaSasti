@@ -5,25 +5,38 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [loading, setLoading] = useState(true);
+  // If we already have token and cached user, render instantly (0ms delay)
+  const [loading, setLoading] = useState(() => {
+    const token = localStorage.getItem('token');
+    const saved = localStorage.getItem('user');
+    return !(token && saved);
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Revalidate in background without blocking initial UI render
       api.get('/auth/me')
         .then((res) => {
-          if (res.success && res.user) {
+          if (res?.success && res?.user) {
             setUser(res.user);
             localStorage.setItem('user', JSON.stringify(res.user));
           }
         })
-        .catch(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
+        .catch((err) => {
+          const status = err?.status || err?.response?.status;
+          if (status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
         })
         .finally(() => setLoading(false));
     } else {

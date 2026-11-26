@@ -27,9 +27,9 @@ export const lookupInvoice = async (req, res) => {
           { invoice_no: query }
         ],
         status: { $ne: 'cancelled' }
-      }).sort({ createdAt: -1 }).limit(10);
+      }).sort({ createdAt: -1 }).limit(10).lean();
     } else {
-      const inv = await Invoice.findOne({ invoice_no: query });
+      const inv = await Invoice.findOne({ invoice_no: query }).lean();
       if (inv && inv.status !== 'cancelled') invoices = [inv];
     }
 
@@ -41,7 +41,7 @@ export const lookupInvoice = async (req, res) => {
           { customer_name: new RegExp(query, 'i') }
         ],
         status: { $ne: 'cancelled' }
-      }).sort({ createdAt: -1 }).limit(10);
+      }).sort({ createdAt: -1 }).limit(10).lean();
     }
 
     if (!invoices.length) {
@@ -65,11 +65,14 @@ export const getSalesReturns = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
 
-    const total = await SalesReturn.countDocuments();
-    const returns = await SalesReturn.find()
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, returns] = await Promise.all([
+      SalesReturn.countDocuments(),
+      SalesReturn.find()
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
 
     res.json({
       success: true,

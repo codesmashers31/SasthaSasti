@@ -16,8 +16,40 @@ export const getDashboardStats = async (req, res) => {
     const startDate = req.query.start_date || todayStr;
     const endDate = req.query.end_date || todayStr;
 
-    // Sales Aggregations
-    const allInvoices = await Invoice.find({ status: { $ne: 'cancelled' } });
+    // Fetch all dashboard data concurrently using Promise.all & lean queries
+    const [
+      allInvoices,
+      products,
+      accounts,
+      customers,
+      suppliers,
+      recentInvoices,
+      recentActivities,
+    ] = await Promise.all([
+      Invoice.find({ status: { $ne: 'cancelled' } })
+        .select('grand_total tax_total invoice_date createdAt sales_mode payment_method items.product_name items.quantity items.total_amount items.unit_price')
+        .lean(),
+      Product.find({ status: 'active' })
+        .select('_id sku name current_stock selling_price purchase_price min_stock_alert material')
+        .lean(),
+      Account.find({ status: 'active' })
+        .select('type current_balance')
+        .lean(),
+      Customer.find({ status: 'active' })
+        .select('current_balance')
+        .lean(),
+      Supplier.find({ status: 'active' })
+        .select('balance_due')
+        .lean(),
+      Invoice.find()
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .lean(),
+      ActivityLog.find()
+        .sort({ created_at: -1 })
+        .limit(8)
+        .lean(),
+    ]);
 
     let totalSales = 0;
     let totalInvoices = allInvoices.length;
@@ -63,7 +95,6 @@ export const getDashboardStats = async (req, res) => {
     });
 
     // Product calculations
-    const products = await Product.find({ status: 'active' });
     let stockValuationRetail = 0;
     let productSourcingInvestment = 0;
     let totalStockUnits = 0;
@@ -123,7 +154,6 @@ export const getDashboardStats = async (req, res) => {
     const targetDateRange = `${sD.getDate()} ${sD.toLocaleDateString('en-IN', { month: 'short' })} - ${eD.getDate()} ${eD.toLocaleDateString('en-IN', { month: 'short' })} ${eD.getFullYear()}`;
 
     // Accounts balance
-    const accounts = await Account.find({ status: 'active' });
     let cashBalance = 0;
     let bankBalance = 0;
     accounts.forEach(a => {
@@ -132,10 +162,7 @@ export const getDashboardStats = async (req, res) => {
     });
 
     // Receivables & Payables
-    const customers = await Customer.find({ status: 'active' });
     let totalReceivables = customers.reduce((sum, c) => sum + (Number(c.current_balance) || 0), 0);
-
-    const suppliers = await Supplier.find({ status: 'active' });
     let totalPayables = suppliers.reduce((sum, s) => sum + (Number(s.balance_due) || 0), 0);
 
     // Chart 1: Monthly Sales Trend (Last 6 Months)
@@ -219,12 +246,6 @@ export const getDashboardStats = async (req, res) => {
       materialStock[mat].units += stock;
       materialStock[mat].value += val;
     });
-
-    // Recent Invoices
-    const recentInvoices = await Invoice.find().sort({ createdAt: -1 }).limit(8);
-
-    // Recent Activities
-    const recentActivities = await ActivityLog.find().sort({ created_at: -1 }).limit(8);
 
     res.json({
       success: true,

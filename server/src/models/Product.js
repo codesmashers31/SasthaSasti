@@ -48,4 +48,11 @@ const productSchema = new mongoose.Schema({
 
 productSchema.index({ name: 'text', god_name: 'text', sku: 'text', barcode: 'text' });
 
+productSchema.index({ barcode: 1 });
+productSchema.index({ sku: 1 });
+productSchema.index({ name: 1 });
+productSchema.index({ status: 1 });
+productSchema.index({ category_id: 1 });
+productSchema.index({ createdAt: -1 });
+
 export default mongoose.model('Product', productSchema);

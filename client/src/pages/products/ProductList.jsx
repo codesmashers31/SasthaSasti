@@ -3428,7 +3428,7 @@ export default function ProductList() {
                       <th className="py-3 px-3 text-center">#</th>
                       <th className="py-3 px-4 min-w-[200px]">Product & SKU</th>
                       <th className="py-3 px-3 text-center min-w-[120px]">
-                        Status
+                        <i className="fas fa-barcode mr-1"></i> Barcode
                       </th>
                       <th className="py-3 px-3 min-w-[110px]">Category</th>
                       <th className="py-3 px-3 text-right min-w-[110px]">Piece Rate</th>
@@ -3461,31 +3461,6 @@ export default function ProductList() {
                         const invert = bought * pieceRate;
                         const productSalesVal = sold * sellingPrice;
 
-                        let statusBadge = (
-                          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-                            <i className="fas fa-box mr-1"></i>In Stock
-                          </span>
-                        );
-                        if (sold > 0 && stock === 0) {
-                          statusBadge = (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
-                              <i className="fas fa-check-double mr-1"></i>Sold Out
-                            </span>
-                          );
-                        } else if (sold > 0 && stock > 0) {
-                          statusBadge = (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                              <i className="fas fa-chart-pie mr-1"></i>Partially Sold
-                            </span>
-                          );
-                        } else if (sold === 0 && stock === 0) {
-                          statusBadge = (
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
-                              Out of Stock
-                            </span>
-                          );
-                        }
-
                         return (
                           <tr key={p._id || p.id} className="hover:bg-indigo-50/40 transition-colors text-xs border-b border-slate-100">
                             <td className="py-3 px-3 text-slate-400 font-mono text-center font-bold">{index + 1}</td>
@@ -3496,7 +3471,9 @@ export default function ProductList() {
                               </div>
                             </td>
                             <td className="py-3 px-3 text-center whitespace-nowrap">
-                              {statusBadge}
+                              <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                <i className="fas fa-barcode text-slate-400"></i> {p.barcode || '—'}
+                              </span>
                             </td>
                             <td className="py-3 px-3">
                               <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">

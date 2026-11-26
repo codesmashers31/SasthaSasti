@@ -17,11 +17,14 @@ export const getCustomers = async (req, res) => {
       ];
     }
 
-    const total = await Customer.countDocuments(filter);
-    const customers = await Customer.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const [total, customers] = await Promise.all([
+      Customer.countDocuments(filter),
+      Customer.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
 
     res.json({
       success: true,

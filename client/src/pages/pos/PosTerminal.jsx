@@ -58,7 +58,6 @@ export default function PosTerminal() {
   const [payAmountCard, setPayAmountCard] = useState('');
   const [payMethodUpi, setPayMethodUpi] = useState(false);
   const [payAmountUpi, setPayAmountUpi] = useState('');
-  const [showUpiQr, setShowUpiQr] = useState(false);
   const [receiptMode, setReceiptMode] = useState('thermal'); // 'thermal', 'whatsapp', 'both'
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [completedInvoice, setCompletedInvoice] = useState(null);
@@ -308,7 +307,6 @@ export default function PosTerminal() {
     setPayAmountCard('');
     setPayMethodUpi(false);
     setPayAmountUpi('');
-    setShowUpiQr(false);
     setIsPaymentModalOpen(true);
   };
 
@@ -341,13 +339,11 @@ export default function PosTerminal() {
       const willBeChecked = !payMethodUpi;
       setPayMethodUpi(willBeChecked);
       if (willBeChecked) {
-        setShowUpiQr(true);
         const otherPaid = (payMethodCash ? parseFloat(payAmountCash) || 0 : 0) + (payMethodCard ? parseFloat(payAmountCard) || 0 : 0);
         const remain = Math.max(0, grandTotal - otherPaid);
         setPayAmountUpi(remain > 0 ? remain.toFixed(2) : (otherPaid === 0 ? grandTotal.toFixed(2) : '0.00'));
       } else {
         setPayAmountUpi('');
-        setShowUpiQr(false);
         if (payMethodCash && !payMethodCard) setPayAmountCash(grandTotal.toFixed(2));
         else if (payMethodCard && !payMethodCash) setPayAmountCard(grandTotal.toFixed(2));
       }
@@ -1473,7 +1469,7 @@ export default function PosTerminal() {
                         className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <i className="fas fa-qrcode text-indigo-600"></i> UPI (Scan QR)
+                        <i className="fas fa-mobile-alt text-indigo-600"></i> UPI
                       </span>
                     </label>
                     {payMethodUpi && (
@@ -1490,29 +1486,6 @@ export default function PosTerminal() {
                   </div>
                 </div>
               </div>
-
-              {/* Dynamic UPI QR Container */}
-              {payMethodUpi && showUpiQr && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center flex flex-col items-center justify-center">
-                  <p className="text-xs font-bold text-slate-700 mb-2">
-                    Scan QR to Pay: <span className="text-amber-700 font-extrabold text-sm">₹{parseFloat(payAmountUpi || grandTotal).toFixed(2)}</span>
-                  </p>
-                  <div className="bg-white p-2 rounded-lg shadow-sm mb-2 inline-block">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                        `upi://pay?pa=${upiId}&pn=${encodeURIComponent(companyName)}&am=${parseFloat(payAmountUpi || grandTotal).toFixed(2)}&cu=INR`
-                      )}`}
-                      alt="UPI QR Code"
-                      className="w-36 h-36 object-contain mx-auto"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                    <i className="fab fa-google-pay text-xs mr-1 text-slate-600"></i>
-                    <i className="fas fa-rupee-sign text-xs mr-1 text-slate-600"></i>
-                    All UPI Apps Accepted
-                  </p>
-                </div>
-              )}
 
               {/* Total Amount Paid & Balance to Pay & Change */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

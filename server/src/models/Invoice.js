@@ -48,6 +48,11 @@ const invoiceSchema = new mongoose.Schema({
   items: [invoiceItemSchema],
 }, { timestamps: true });
 
+invoiceSchema.index({ invoice_no: 1 });
+invoiceSchema.index({ customer_mobile: 1 });
+invoiceSchema.index({ createdAt: -1 });
+invoiceSchema.index({ status: 1 });
+invoiceSchema.index({ invoice_date: -1 });
 invoiceSchema.index({ invoice_no: 'text', customer_name: 'text', customer_mobile: 'text' });
 
 export default mongoose.model('Invoice', invoiceSchema);

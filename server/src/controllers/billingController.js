@@ -354,33 +354,35 @@ export const getInvoices = async (req, res) => {
       filter.invoice_date = { $lte: end_date };
     }
 
-    const total = await Invoice.countDocuments(filter);
-    const invoices = await Invoice.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    // Compute KPI metrics across the matched filter
-    const summaryAgg = await Invoice.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          total_sales: { $sum: '$grand_total' },
-          total_paid: { $sum: '$paid_amount' },
-          total_count: { $sum: 1 },
-          paid_count: {
-            $sum: {
-              $cond: [{ $gte: ['$paid_amount', '$grand_total'] }, 1, 0]
-            }
-          },
-          due_count: {
-            $sum: {
-              $cond: [{ $lt: ['$paid_amount', '$grand_total'] }, 1, 0]
+    // Parallelize count, invoices fetch with lean(), and summary aggregation
+    const [total, invoices, summaryAgg] = await Promise.all([
+      Invoice.countDocuments(filter),
+      Invoice.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Invoice.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            total_sales: { $sum: '$grand_total' },
+            total_paid: { $sum: '$paid_amount' },
+            total_count: { $sum: 1 },
+            paid_count: {
+              $sum: {
+                $cond: [{ $gte: ['$paid_amount', '$grand_total'] }, 1, 0]
+              }
+            },
+            due_count: {
+              $sum: {
+                $cond: [{ $lt: ['$paid_amount', '$grand_total'] }, 1, 0]
+              }
             }
           }
         }
-      }
+      ]),
     ]);
 
     const metrics = summaryAgg.length > 0 ? {
