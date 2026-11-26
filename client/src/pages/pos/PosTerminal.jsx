@@ -64,6 +64,9 @@ export default function PosTerminal() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isHeldModalOpen, setIsHeldModalOpen] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [showMobilePromptModal, setShowMobilePromptModal] = useState(false);
+  const [promptMobileNumber, setPromptMobileNumber] = useState('');
+  const [successToast, setSuccessToast] = useState(null);
 
   // State: Customer Search & Quick Add
   const [customerList, setCustomerList] = useState([]);
@@ -465,6 +468,103 @@ export default function PosTerminal() {
       setCustomerName(finalQuickName);
       setCustomerMobile(quickCustMobile.trim());
       setIsCustomerModalOpen(false);
+    }
+  };
+
+  // Direct 1-Click Print & WhatsApp Bill Execution
+  const handleDirectPrintAndWhatsapp = () => {
+    if (!cart.length) {
+      alert('Billing Cart is empty! Please add statues or items first.');
+      return;
+    }
+    const cleanPhone = (customerMobile || '').replace(/\D/g, '');
+    if (cleanPhone.length >= 10) {
+      // Mobile number is available: proceed immediately!
+      processFastCheckout({ receiptMode: 'both', mobile: cleanPhone });
+    } else {
+      // Mobile number is not entered: ask for mobile number with clean prompt modal!
+      setPromptMobileNumber('');
+      setShowMobilePromptModal(true);
+    }
+  };
+
+  const handleMobilePromptSubmit = (e) => {
+    if (e) e.preventDefault();
+    const cleanPhone = promptMobileNumber.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      alert('Please enter a valid 10-digit customer mobile number.');
+      return;
+    }
+    setCustomerMobile(cleanPhone);
+    setShowMobilePromptModal(false);
+    processFastCheckout({ receiptMode: 'both', mobile: cleanPhone });
+  };
+
+  const handleMobilePromptSkip = () => {
+    setShowMobilePromptModal(false);
+    processFastCheckout({ receiptMode: 'thermal', mobile: '' });
+  };
+
+  const processFastCheckout = async ({ receiptMode = 'both', mobile = '' }) => {
+    if (!cart.length || isCheckingOut) return;
+
+    try {
+      setIsCheckingOut(true);
+
+      const finalPhone = mobile || customerMobile.trim();
+      const numReceived = parseFloat(payAmountCash) || grandTotal;
+      const tendered = Math.max(grandTotal, numReceived);
+      const change = Math.max(0, Math.round((tendered - grandTotal) * 100) / 100);
+
+      const payload = {
+        customer_name: customerName.trim() || 'Walk-in Retail Customer',
+        customer_mobile: finalPhone,
+        customer_type: customerType || 'retail',
+        items: cart,
+        overall_discount_amount: discountVal,
+        bill_gst_percent: activeTaxRate,
+        sales_mode: salesMode,
+        payment_method: 'cash',
+        paid_amount: grandTotal,
+        tendered_amount: tendered,
+        change_amount: change,
+        receipt_mode: receiptMode,
+        notes: invoiceNotes,
+      };
+
+      const res = await api.post('/billing/checkout', payload);
+      if (res && res.success && res.invoice) {
+        const inv = res.invoice;
+
+        // Directly trigger thermal print immediately!
+        setTimeout(() => {
+          printThermalReceipt(inv);
+        }, 150);
+
+        // Directly open WhatsApp bill if mobile number was provided
+        if ((receiptMode === 'both' || receiptMode === 'whatsapp') && res.whatsappUrl) {
+          window.open(res.whatsappUrl, '_blank');
+        }
+
+        // Show non-blocking success toast
+        setSuccessToast(`Invoice #${inv.invoice_no} generated! Receipt printed & sent.`);
+        setTimeout(() => setSuccessToast(null), 4000);
+
+        // Reset cart immediately for next customer
+        setCart([]);
+        setCustomerMobile('');
+        setCustomerName('');
+        setOverallDiscount('');
+        setInvoiceNotes('');
+        setPayAmountCash('');
+
+        // Refresh stock catalog in background
+        fetchInitialData();
+      }
+    } catch (err) {
+      alert(err.message || 'Checkout failed. Please check inputs or server connection.');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -1157,61 +1257,120 @@ export default function PosTerminal() {
             </span>
           </div>
 
-          {/* Action Buttons: Direct Print / WhatsApp Bill / Hold / Complete Bill */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          {/* Quick Cash Tender & Change Display */}
+          <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                <i className="fas fa-money-bill-wave text-emerald-600"></i> Cash Given (₹):
+              </span>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-slate-400 font-bold font-mono text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={payAmountCash}
+                  onChange={(e) => setPayAmountCash(e.target.value)}
+                  placeholder={grandTotal.toFixed(2)}
+                  className="w-28 bg-white border border-emerald-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-lg pl-5 pr-2 py-1 text-xs font-mono font-black text-right text-slate-900 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Quick Tender Pills */}
+            <div className="flex flex-wrap items-center justify-between gap-1 pt-0.5 border-t border-slate-200">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Quick:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPayAmountCash(grandTotal.toFixed(2))}
+                  className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-mono text-[10px] font-bold border border-emerald-300 transition-colors cursor-pointer"
+                >
+                  Exact: ₹{grandTotal}
+                </button>
+                {[500, 1000, 2000].map((tender) => (
+                  <button
+                    key={tender}
+                    type="button"
+                    onClick={() => setPayAmountCash(tender.toString())}
+                    className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 hover:border-amber-300 text-slate-800 font-mono text-[10px] font-bold border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    ₹{tender}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Change to Return Notice */}
+            {changeToReturn > 0 && (
+              <div className="p-2 rounded-lg bg-emerald-600 text-white flex items-center justify-between font-mono shadow-xs animate-in fade-in">
+                <span className="text-[10px] uppercase font-black tracking-wide flex items-center gap-1">
+                  <i className="fas fa-hand-holding-usd text-xs"></i> Change to Return:
+                </span>
+                <span className="text-base font-black">
+                  ₹{changeToReturn.toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons: Unified Direct Print & WhatsApp Bill */}
+          <div className="space-y-1.5 pt-1">
+            {/* Primary Main Action: Direct Print & WhatsApp Bill */}
             <button
               type="button"
               disabled={isCheckingOut || !cart.length}
-              onClick={() => processCheckout('thermal')}
-              title="Instant Cash Checkout & Print Receipt"
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              onClick={handleDirectPrintAndWhatsapp}
+              title="1-Click Direct Print & WhatsApp Bill to Customer"
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
             >
               {isCheckingOut ? (
-                <i className="fas fa-circle-notch fa-spin text-xs"></i>
+                <i className="fas fa-circle-notch fa-spin text-sm"></i>
               ) : (
-                <i className="fas fa-print text-xs"></i>
+                <span className="flex items-center gap-1 text-sm">
+                  <i className="fas fa-print"></i>
+                  <i className="fab fa-whatsapp text-emerald-200"></i>
+                </span>
               )}
-              <span className="truncate">Direct Print</span>
+              <span className="tracking-wide">Direct Print & WhatsApp Bill</span>
             </button>
 
-            <button
-              type="button"
-              disabled={isCheckingOut || !cart.length}
-              onClick={() => processCheckout('whatsapp')}
-              title="Instant Cash Checkout & Share on WhatsApp"
-              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-            >
-              {isCheckingOut ? (
-                <i className="fas fa-circle-notch fa-spin text-xs"></i>
-              ) : (
-                <i className="fab fa-whatsapp text-sm"></i>
-              )}
-              <span className="truncate">WhatsApp Bill</span>
-            </button>
+            {/* Secondary Actions */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                disabled={isCheckingOut || !cart.length}
+                onClick={() => processFastCheckout({ receiptMode: 'thermal', mobile: '' })}
+                title="Directly Print Thermal Receipt"
+                className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 disabled:opacity-50 font-bold py-1.5 px-2 rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <i className="fas fa-print text-indigo-600"></i>
+                <span className="truncate">Print Only</span>
+              </button>
 
-            <button
-              type="button"
-              disabled={isCheckingOut || !cart.length}
-              onClick={holdCurrentBill}
-              className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-2 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
-            >
-              <i className="fas fa-pause text-amber-600"></i> Hold [F9]
-            </button>
+              <button
+                type="button"
+                disabled={isCheckingOut || !cart.length}
+                onClick={holdCurrentBill}
+                className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 disabled:opacity-50 font-bold py-1.5 px-2 rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <i className="fas fa-pause text-amber-600"></i>
+                <span className="truncate">Hold [F9]</span>
+              </button>
 
-            <button
-              type="button"
-              id="btn-pos-pay"
-              disabled={isCheckingOut || !cart.length}
-              onClick={openPaymentModal}
-              className="gold-btn font-extrabold py-2 px-2 rounded-xl text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isCheckingOut ? (
-                <i className="fas fa-circle-notch fa-spin text-xs"></i>
-              ) : (
-                <i className="fas fa-check-circle text-xs"></i>
-              )}
-              <span className="truncate">Complete [F8]</span>
-            </button>
+              <button
+                type="button"
+                id="btn-pos-pay"
+                disabled={isCheckingOut || !cart.length}
+                onClick={openPaymentModal}
+                className="bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 disabled:opacity-50 font-bold py-1.5 px-2 rounded-xl text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <i className="fas fa-credit-card text-amber-700"></i>
+                <span className="truncate">Split [F8]</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1894,6 +2053,79 @@ export default function PosTerminal() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* QUICK MODAL: Prompt Customer Mobile for WhatsApp Bill */}
+      {/* ======================================================== */}
+      {showMobilePromptModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative text-center">
+            <button
+              type="button"
+              onClick={() => setShowMobilePromptModal(false)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <i className="fas fa-times text-xs"></i>
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mx-auto mb-3 border border-emerald-200 shadow-xs">
+              <i className="fab fa-whatsapp"></i>
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-900">
+              WhatsApp Bill Delivery
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              Enter customer mobile number to send WhatsApp bill (Total: <strong className="text-slate-900 font-mono">₹{grandTotal.toFixed(2)}</strong>):
+            </p>
+
+            <form onSubmit={handleMobilePromptSubmit} className="space-y-3">
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs font-mono">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  autoFocus
+                  maxLength={10}
+                  value={promptMobileNumber}
+                  onChange={(e) => setPromptMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="10-digit Mobile Number"
+                  className="w-full bg-slate-50 border-2 border-emerald-500 focus:bg-white focus:border-emerald-600 rounded-xl pl-11 pr-3 py-2 text-sm font-mono font-bold text-slate-900 outline-none text-left"
+                />
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={promptMobileNumber.length < 10}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                >
+                  <i className="fab fa-whatsapp text-sm"></i> Send WhatsApp & Print Bill
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleMobilePromptSkip}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <i className="fas fa-print text-slate-500"></i> Skip WhatsApp, Just Print
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Success Toast */}
+      {successToast && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in slide-in-from-bottom">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs shrink-0 font-bold">
+            <i className="fas fa-check"></i>
+          </div>
+          <span className="text-xs font-semibold">{successToast}</span>
         </div>
       )}
     </div>
