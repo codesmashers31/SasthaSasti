@@ -2,13 +2,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/client';
 
 export default function PosTerminal() {
-  // State: Catalog & Categories
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  // State: Catalog & Categories (Instant SWR hydration from localStorage for 0ms load)
+  const [products, setProducts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sastha_pos_catalog');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [categories, setCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sastha_pos_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedCategory, setSelectedCategory] = useState({ id: 'all', name: 'All Idols & Items Catalog' });
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sastha_pos_catalog');
+      return !saved || JSON.parse(saved).length === 0;
+    } catch {
+      return false;
+    }
+  });
 
   // State: Cart & Held Bills
   const [cart, setCart] = useState([]);
@@ -133,13 +154,25 @@ export default function PosTerminal() {
 
   const fetchInitialData = async () => {
     try {
-      setLoading(true);
+      if (!products || products.length === 0) {
+        setLoading(true);
+      }
       const [prodRes, catRes] = await Promise.all([
-        api.get('/products/search/pos', { skipCache: true }),
-        api.get('/categories', { skipCache: true }),
+        api.get('/products/search/pos'),
+        api.get('/categories'),
       ]);
-      if (prodRes && prodRes.data) setProducts(prodRes.data);
-      if (catRes && catRes.data) setCategories(catRes.data);
+      if (prodRes && prodRes.data) {
+        setProducts(prodRes.data);
+        try {
+          localStorage.setItem('sastha_pos_catalog', JSON.stringify(prodRes.data));
+        } catch {}
+      }
+      if (catRes && catRes.data) {
+        setCategories(catRes.data);
+        try {
+          localStorage.setItem('sastha_pos_categories', JSON.stringify(catRes.data));
+        } catch {}
+      }
     } catch (err) {
       console.error('Error loading POS catalog:', err);
     } finally {
@@ -1398,8 +1431,8 @@ export default function PosTerminal() {
                 <label className="block font-bold text-slate-700 mb-2">Select Payment Method</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Cash */}
-                  <div className="p-3 bg-white border border-slate-200 hover:border-emerald-500 rounded-xl flex flex-col gap-2 text-slate-700 shadow-sm transition-all">
-                    <label className="cursor-pointer flex items-center gap-2 w-full">
+                  <div className="p-3 bg-white border border-slate-200 hover:border-emerald-500 rounded-xl flex items-center justify-between text-slate-700 shadow-sm transition-all">
+                    <label className="cursor-pointer flex items-center gap-2">
                       <input
                         type="checkbox"
                         checked={payMethodCash}
@@ -1411,36 +1444,9 @@ export default function PosTerminal() {
                       </span>
                     </label>
                     {payMethodCash && (
-                      <div className="space-y-1.5 animate-in fade-in">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={payAmountCash}
-                          onChange={(e) => setPayAmountCash(e.target.value)}
-                          placeholder="Cash Received (₹)"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 font-mono font-bold text-slate-800"
-                        />
-                        <div className="flex flex-wrap gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setPayAmountCash(grandTotal.toFixed(2))}
-                            className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold font-mono hover:bg-emerald-100 cursor-pointer"
-                          >
-                            Exact: ₹{grandTotal}
-                          </button>
-                          {[500, 1000, 2000].map((tender) => (
-                            <button
-                              key={tender}
-                              type="button"
-                              onClick={() => setPayAmountCash(tender.toFixed(2))}
-                              className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold font-mono hover:bg-amber-50 hover:border-amber-300 cursor-pointer"
-                            >
-                              ₹{tender}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Default Method
+                      </span>
                     )}
                   </div>
 
@@ -1498,59 +1504,125 @@ export default function PosTerminal() {
                 </div>
               </div>
 
-              {/* Total Amount Paid & Balance to Pay & Change */}
+              {/* Total Amount Received (Editable) & Balance to Pay / Return */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Total Amount Received (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    readOnly
-                    value={totalAmountPaid.toFixed(2)}
-                    className="w-full bg-emerald-50/40 border border-emerald-400 text-emerald-900 font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-800 text-xs">
+                      Total Amount Received (₹) <span className="text-emerald-600 font-extrabold">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">Type cash received</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold font-mono text-sm">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={payAmountCash}
+                      onChange={(e) => setPayAmountCash(e.target.value)}
+                      placeholder="e.g. 1000"
+                      className="w-full bg-white border-2 border-emerald-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-mono font-black text-lg rounded-xl pl-7 pr-3 py-2 outline-none shadow-sm transition-all"
+                    />
+                  </div>
+                  {/* Quick Tender Pills */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-0.5">Quick:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPayAmountCash(grandTotal.toFixed(2))}
+                      className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-mono text-[11px] font-bold border border-emerald-300 transition-colors cursor-pointer"
+                    >
+                      Exact: ₹{grandTotal}
+                    </button>
+                    {[500, 1000, 2000].map((tender) => (
+                      <button
+                        key={tender}
+                        type="button"
+                        onClick={() => setPayAmountCash(tender.toString())}
+                        className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-amber-100 hover:border-amber-300 text-slate-800 font-mono text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer"
+                      >
+                        ₹{tender}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    {balanceToPay > 0 ? 'Remaining Balance to Pay (₹)' : 'Balance Status'}
+                  <label className="block font-bold text-slate-800 text-xs mb-1">
+                    {changeToReturn > 0
+                      ? 'Balance to Return (Change)'
+                      : balanceToPay > 0
+                      ? 'Remaining Due to Pay'
+                      : 'Payment Status'}
                   </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={balanceToPay > 0 ? `₹${balanceToPay.toFixed(2)}` : 'Fully Paid'}
-                    className={`w-full font-bold rounded-xl px-3 py-2 text-sm outline-none font-mono ${
-                      balanceToPay > 0
-                        ? 'bg-rose-50 border border-rose-200 text-rose-700'
-                        : 'bg-emerald-50 border border-emerald-300 text-emerald-700'
+                  <div
+                    className={`w-full font-bold rounded-xl px-3 py-2 text-base font-mono flex items-center justify-between border-2 transition-all ${
+                      changeToReturn > 0
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm'
+                        : balanceToPay > 0
+                        ? 'bg-rose-50 border-rose-300 text-rose-700'
+                        : 'bg-emerald-50/60 border-emerald-300 text-emerald-700'
                     }`}
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {balanceToPay > 0 ? 'Customer has outstanding due' : 'Bill is completely covered'}
+                  >
+                    <span className="text-xl font-black">
+                      {changeToReturn > 0
+                        ? `₹${changeToReturn.toFixed(2)}`
+                        : balanceToPay > 0
+                        ? `₹${balanceToPay.toFixed(2)}`
+                        : '₹0.00 (Exact Paid)'}
+                    </span>
+                    <span
+                      className={`text-[11px] uppercase font-black px-2.5 py-1 rounded-lg ${
+                        changeToReturn > 0
+                          ? 'bg-emerald-600 text-white animate-pulse'
+                          : balanceToPay > 0
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-emerald-200 text-emerald-800'
+                      }`}
+                    >
+                      {changeToReturn > 0 ? 'Return Change' : balanceToPay > 0 ? 'Due Pending' : 'Fully Paid'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium mt-1">
+                    {changeToReturn > 0 ? (
+                      <span className="text-emerald-700 font-bold flex items-center gap-1">
+                        <i className="fas fa-hand-holding-usd text-emerald-600"></i> Customer gave ₹{totalAmountPaid.toFixed(2)}. Return ₹{changeToReturn.toFixed(2)} balance!
+                      </span>
+                    ) : balanceToPay > 0 ? (
+                      <span className="text-rose-600 font-semibold">Customer still owes ₹{balanceToPay.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-slate-400">Bill is exact and fully covered</span>
+                    )}
                   </p>
                 </div>
               </div>
 
-              {/* CHANGE / BALANCE TO RETURN DISPLAY */}
+              {/* CHANGE / BALANCE TO RETURN DISPLAY BANNER */}
               {changeToReturn > 0 && (
-                <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in">
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-emerald-500/20 animate-in fade-in">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl font-bold shrink-0">
                       <i className="fas fa-hand-holding-usd"></i>
                     </div>
                     <div>
-                      <span className="text-xs font-black text-emerald-900 uppercase tracking-wide block">
+                      <span className="text-xs uppercase font-black tracking-wider text-emerald-100 block">
                         Change / Balance to Return Customer
                       </span>
-                      <span className="text-[11px] text-emerald-700">
-                        Bill is ₹{grandTotal.toFixed(2)}, received ₹{totalAmountPaid.toFixed(2)}
+                      <span className="text-xs font-semibold text-white">
+                        Bill is <strong className="font-mono">₹{grandTotal.toFixed(2)}</strong>, received <strong className="font-mono">₹{totalAmountPaid.toFixed(2)}</strong>
                       </span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl font-black text-emerald-700 font-mono tracking-tight">
+                    <span className="text-3xl font-black font-mono tracking-tight text-white block">
                       ₹{changeToReturn.toFixed(2)}
                     </span>
-                    <span className="text-[10px] text-emerald-600 font-bold block uppercase">Return to Customer</span>
+                    <span className="text-[10px] bg-white text-emerald-800 font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block shadow-sm">
+                      Return ₹{changeToReturn.toFixed(2)}
+                    </span>
                   </div>
                 </div>
               )}
